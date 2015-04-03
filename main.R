@@ -1,9 +1,11 @@
 rm(list = ls())
 gc()
 setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
-dir.create("submit", showWarnings = FALSE)
+fig_dir <- "fig"
 results_dir <- "results"
+dir.create(fig_dir, showWarnings = FALSE)
 dir.create(results_dir, showWarnings = FALSE)
+dir.create("submit", showWarnings = FALSE)
 get_notifications <- FALSE
 if (get_notifications) {
   library(RPushbullet)
@@ -11,12 +13,12 @@ if (get_notifications) {
     pbPost("note", "Error!", geterrmessage(), recipients = c(1, 2))
   })
 }
-
+#----------------------------------------------------------------------
 write_submission <- function(probs, model_name) {
   file_path <- file.path("submit", paste0(model_name, ".csv"))
   submit <- read.csv("data/SubmissionFormat.csv")
-  if (!all.equal(dim(submit[, 2:ncol(submit)]), dim(probs)))
-    stop(paste0("probs should be of dimensions ", dim(submit[, 2:ncol(submit)]), "!"))
+  # if (!all.equal(dim(submit[, 2:ncol(submit)]), dim(probs)))
+  #   stop(paste0("probs should be of dimensions ", dim(submit[, 2:ncol(submit)]), "!"))
   submit[, 2:ncol(submit)] <- probs
   if (file.exists(file_path))
     stop(paste0(file_path, " already exists!"))
@@ -29,43 +31,47 @@ train <- read.csv("data/train_values.csv")
 ytrain <- read.csv("data/train_labels.csv")
 test <- read.csv("data/test_values.csv")
 
-# RF can only digest factors with up to 32 levels
-cols_nlevels <- apply(train, 2, function(x) length(unique(x)))
-names(train)[cols_nlevels > 32]
-
 # Check for columns with only missing values or constant values and drop them
 cols_missingvalues <- apply(train, 2, function(x) if (is.factor(x)) all(x == "") else all(is.na(x)))
-sum(cols_missingvalues) # 11
+sum(cols_missingvalues) # 14
 names(train)[cols_missingvalues]
 cols_constant <- apply(train, 2, function(x) length(unique(x)) == 1)
-sum(cols_constant) # 11
+sum(cols_constant) # 20
 names(train)[cols_constant]
 dim(train); dim(test)
 train <- train[, !cols_missingvalues & !cols_constant]
 test <- test[, !cols_missingvalues & !cols_constant]
 dim(train); dim(test)
 
-# Check pairwise correlations in ytrain
-comb <- combn(15, 2)
-correlation <- rep(NA, ncol(comb))
-for (i in 1:ncol(comb)) {
-  correlation[i] <- cor(ytrain[comb[1, i]], ytrain[comb[2, i]])
-}
-hist(correlation)
+# RF can only digest factors with up to 32 levels
+cols_nlevels <- apply(train, 2, function(x) length(unique(x)))
+cols_morethan32levels <- (cols_ordinal | cols_categorical) & cols_nlevels > 32
+names(train)[cols_morethan32levels]
+sum(cols_morethan32levels)
 
 # Impute missing values
 # http://trevorstephens.com/post/73770963794/titanic-getting-started-with-r-part-5-random
 # Impute with mean/median
 
 # Impute with a decision tree
-Agefit <- rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Embarked + Title + FamilySize,
-                data=combi[!is.na(combi$Age),], method="anova")
-combi$Age[is.na(combi$Age)] <- predict(Agefit, combi[is.na(combi$Age),])
-
-
+# Agefit <- rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Embarked + Title + FamilySize,
+#                 data=combi[!is.na(combi$Age),], method="anova")
+# combi$Age[is.na(combi$Age)] <- predict(Agefit, combi[is.na(combi$Age),])
+#----------------------------------------------------------------------
+# Random probability drawn from U(0, 1)
+probs <- matrix(runif(nrow(test)*(ncol(ytrain) - 1)), nrow(test), ncol(ytrain) - 1)
+write_submission(probs, paste0("unifseed", seed))
+# Constant probability of 0.5
+probs <- matrix(0.5, nrow(test), ncol(ytrain) - 1)
+write_submission(probs, "constant0.5")
+# Constant probability of proportion for each service
+ytrain_props <- apply(ytrain[, -1], 2, mean)
+probs <- matrix(rep(ytrain_props, each = nrow(test)), nrow(test), ncol(ytrain) - 1)
+write_submission(probs, "constantprop")
+#----------------------------------------------------------------------
 # Random forest
 library(randomForest)
-probs <- matrix(NA, nrow(test), ncol(ytrain))
+probs <- matrix(NA, nrow(test), ncol(ytrain) - 1)
 for (i in 1:ncol(ytrain)) {
   target <- ytrain[, i]
   model <- randomForest(target ~ ., data = train, 
