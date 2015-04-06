@@ -27,20 +27,23 @@ write_submission <- function(probs, model_name) {
 }
 
 seed <- 12345
-train <- read.csv("data/train_values.csv")
+# Read in data
+train_readin <- read.csv("data/train_values.csv")
 ytrain <- read.csv("data/train_labels.csv")
-test <- read.csv("data/test_values.csv")
+test_readin <- read.csv("data/test_values.csv")
 
 # Check for columns with only missing values or constant values and drop them
-cols_missingvalues <- apply(train, 2, function(x) if (is.factor(x)) all(x == "") else all(is.na(x)))
+cols_missingvalues <- sapply(train_readin,
+                             function(x) if (is.factor(x)) all(x == "") else all(is.na(x)))
 sum(cols_missingvalues) # 14
-names(train)[cols_missingvalues]
-cols_constant <- apply(train, 2, function(x) length(unique(x)) == 1)
+names(train_readin)[cols_missingvalues]
+cols_constant <- sapply(train_readin, function(x) length(unique(x)) == 1)
 sum(cols_constant) # 20
-names(train)[cols_constant]
-dim(train); dim(test)
-train <- train[, !cols_missingvalues & !cols_constant]
-test <- test[, !cols_missingvalues & !cols_constant]
+names(train_readin)[cols_constant]
+dim(train_readin); dim(test_readin)
+train <- train_readin[, !cols_missingvalues & !cols_constant]
+test <- test_readin[, !cols_missingvalues & !cols_constant]
+dim(train_readin); dim(test_readin)
 dim(train); dim(test)
 
 # RF can only digest factors with up to 32 levels
