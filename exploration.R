@@ -92,11 +92,33 @@ hist(num_missing_categorical, freq = FALSE,
      main = "Distribution of missing\ncategorical features across all women",
      xlab = "Number of missing categorical features")
 
+# Apply to test data
+# test$num_missing_numeric <- apply(test[, cols_numeric], 1, function(x) sum(is.na(x)))
+# test$num_missing_ordinal <- apply(test[, cols_ordinal], 1, function(x) sum(is.na(x)))
+# test$num_missing_categorical <- apply(test[, cols_categorical], 1, function(x) sum(is.na(x)))
+
 # What to do with missing values?
+# Numeric features: Set as 0 or mean?
+for (i in 1:sum(cols_numeric)) {
+  train[, cols_numeric][, i] <- ifelse(is.na(train[, cols_numeric][, i]), 
+                                       0, train[, cols_numeric][, i])
+  test[, cols_numeric][, i] <- ifelse(is.na(test[, cols_numeric][, i]), 
+                                       0, test[, cols_numeric][, i])
+}
+# Ordinal features: Set as -1
+# table(sapply(train[, cols_ordinal], min, na.rm = TRUE)) # min is 0 or 1
+for (i in 1:sum(cols_ordinal)) {
+  train[, cols_ordinal][, i] <- ifelse(is.na(train[, cols_ordinal][, i]), 
+                                       -1, train[, cols_ordinal][, i])
+  test[, cols_ordinal][, i] <- ifelse(is.na(test[, cols_ordinal][, i]), 
+                                      -1, test[, cols_ordinal][, i])
+}
+# Categorical features: Set as new category missing
 for (i in 1:sum(cols_categorical)) {
   train[, cols_categorical][, i] <- ifelse(is.na(train[, cols_categorical][, i]), 
-                                           "missing",
-                                           train[, cols_categorical][, i])
+                                           "missing", train[, cols_categorical][, i])
+  test[, cols_categorical][, i] <- ifelse(is.na(test[, cols_categorical][, i]), 
+                                          "missing", test[, cols_categorical][, i])
 }
 
 # RF can only digest factors with up to 32 levels
