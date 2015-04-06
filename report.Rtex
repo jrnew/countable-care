@@ -1,0 +1,92 @@
+\documentclass{article}
+\usepackage{graphicx}
+% Set page margins
+\usepackage{geometry}
+\geometry{verbose,tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+% Remove paragraph indenting
+\setlength\parindent{0pt}
+% Add hyperlinks
+\usepackage{hyperref}
+% Use math equations
+\usepackage{amsmath}
+
+\title{STAT 222: Project 4\\
+       Countable Care}
+\author{Yuan He, Lindsey Lee, Jin Rou New, Tianyi Zhu\\
+        University of California, Berkeley}
+\date{\today}
+
+\setlength\parindent{0pt} % to remove paragraph indent
+\setlength{\parskip}{\baselineskip} % to get space between paragraphs
+\usepackage{setspace} % to allow for double line spacing
+
+%% begin.rcode setup, include=FALSE
+% opts_chunk$set(fig.path='figure/latex-', cache.path='cache/latex-')
+%% end.rcode
+
+\begin{document}
+%\maketitle
+
+\begin{abstract}
+  A Bayesian analysis of a randomized response survey was carried out to study the use of cognition-enhancing drugs in the UCB student population and gender-specific differences in this use. About three quarters of the student population do not use cognition-enhancing drugs, while about a tenth use them with a prescription and 14\% use them without a prescription. We concluded that there is no statistically significant difference in drug use between male and female students. \\ 
+	\hfill\break
+	\textbf{Keywords}: countable care
+\end{abstract}
+\clearpage
+%==================================================
+\section{Introduction}
+\label{sec:introduction}
+%==================================================
+\section{Data}
+\label{sec:data}
+An overview of the survey data is given in Table~\ref{tab-data}.
+
+\begin{table}[ht]
+  \centering
+	\begin{tabular}{@{}|l|c|c|c|c|@{}}
+		\hline
+		& Male & Female & Missing & Total\\ 
+		\hline
+		All observations & 62 & 46 & 9 & 117 \\ 
+			Excluding fraternity observations & 41 & 45 & 8 & 94\\ 
+		\hline
+	\end{tabular}
+	\caption{\textbf{Summary of the survey observations}} 
+  \label{tab-data}
+\end{table}
+%==================================================
+\section{Methods} 
+\label{sec:methods}
+\subsection{Computation}
+All calculations were carried out in the R programming language, with additional functions from the \texttt{randomForest} and \texttt{randomForest} packages. Annotated code is given in the Appendix in Section \ref{sec:appendix}.
+%==================================================
+\section{Results} 
+\label{sec:results}
+%==================================================
+\section{Discussion} 
+\label{sec:discussion}
+%==================================================
+\section{References}
+\clearpage
+%==================================================
+\appendix
+\section*{Appendix}
+\label{sec:appendix}
+
+%% begin.rcode q1, cache=TRUE, eval=FALSE
+%% end.rcode
+
+\section{Appendix}
+%% begin.rcode read-chunk, echo=FALSE
+% library(knitr)
+% read_chunk("proj1.R") 
+% read_chunk("proj1_functions.R") 
+%% end.rcode
+
+%% begin.rcode proj1_functions, eval=FALSE, cache=FALSE
+%% end.rcode
+
+%% begin.rcode proj1, eval=FALSE, cache=FALSE
+%% end.rcode
+
+\end{document}
