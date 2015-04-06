@@ -124,5 +124,12 @@ for (i in 1:sum(cols_categorical)) {
 # RF can only digest factors with up to 32 levels
 cols_nlevels <- apply(train, 2, function(x) length(unique(x)))
 cols_morethan32levels <- (cols_ordinal | cols_categorical) & cols_nlevels > 32
-names(train)[cols_morethan32levels]
+names(train)[cols_morethan32levels] # only ordinal features have this problem
 sum(cols_morethan32levels)
+pdf(file.path(fig_dir, "features-with-more-than-32-levels.pdf"), width = 18, height = 15)
+par(mar = c(4.5, 4.5, 4.5, 2), mfrow = c(5, 6))
+for (i in 1:sum(cols_morethan32levels)) {
+  barplot(train[, cols_morethan32levels][, i])
+  print(range(train[, cols_morethan32levels][, i], na.rm = TRUE))
+}
+dev.off()
