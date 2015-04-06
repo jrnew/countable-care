@@ -22,6 +22,14 @@ hist(numy, freq = FALSE, main = "Histogram of number of services used",
      xlab = "Number of services used", col = "lightgrey")
 dev.off()
 
+par(mar = c(4.5, 4.5, 4.5, 2))
+pdf(file.path(fig_dir, "number-of-svcs-used.pdf"), width = 7, height = 5)
+barplot(apply(ytrain[, -1], 2, mean), 
+        names.arg = gsub("service_", "", colnames(ytrain[, -1])),
+        main = "Percentage of women\nwho used each service",
+        ylab = "Percentage (%)")
+dev.off()
+
 # # Check pairwise correlations in ytrain 
 # # (does not really make sense for categorical response though...)
 # comb <- combn(15, 2)
