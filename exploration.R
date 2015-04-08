@@ -131,15 +131,6 @@ data <- list(train = train,
              prop_missing_cutoff = prop_missing_cutoff)
 save(data, file = file.path(data_dir, "data.rda"))
 
-# Create dummy variables for ordinal and categorical variables
-library(caret)
-dummy <- dummyVars(~ ., data = train, sep = "_", fullRank = TRUE)
-train_dummy <- predict(dummy, train)
-test_dummy <- predict(dummy, test)
-data$train <- train_dummy
-data$test <- test_dummy
-save(data, file = file.path(data_dir, "data_dummy.rda"))
-
 # Create dummy variables for categorical variables
 dummy <- dummyVars(as.formula(paste0("~", paste(colnames_all[cols_categorical], collapse = " + "))), 
                    data = train, sep = "_", fullRank = TRUE)
@@ -147,8 +138,7 @@ train_dummy <- predict(dummy, train)
 test_dummy <- predict(dummy, test)
 data$train <- train_dummy
 data$test <- test_dummy
-save(data, file = file.path(data_dir, "data_dummyc.rda"))
-
+save(data, file = file.path(data_dir, "data_dummy.rda"))
 #----------------------------------------------------------------------
 #----------------------------------------------------------------------
 # Further data processing
