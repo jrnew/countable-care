@@ -68,7 +68,7 @@ There are a large number of missing values in the data. There are many features 
 \end{table}
 
 \subsection{Data processing}
-Features that contain only missing values or one unique value (i.e. constant value for all women) were dropped from the data. There were 14 and 20 of such columns respectively.
+Features that contain only missing values or one unique value (i.e. constant value for all women) were dropped from the data. There were 14 and 20 of such features respectively.
 %==================================================
 \section{Methods}
 \label{sec:methods}
