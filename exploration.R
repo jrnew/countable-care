@@ -98,17 +98,17 @@ for (i in 1:sum(cols_numeric)) {
 # Ordinal features: Set as -1
 # table(sapply(train[, cols_ordinal], min, na.rm = TRUE)) # min is 0 or 1
 for (i in 1:sum(cols_ordinal)) {
-  train[, cols_ordinal][, i] <- ifelse(is.na(train[, cols_ordinal][, i]), 
-                                       -1, train[, cols_ordinal][, i])
-  test[, cols_ordinal][, i] <- ifelse(is.na(test[, cols_ordinal][, i]), 
-                                      -1, test[, cols_ordinal][, i])
+  train[, cols_ordinal][, i] <- factor(ifelse(is.na(train[, cols_ordinal][, i]), 
+                                              -1, train[, cols_ordinal][, i]))
+  test[, cols_ordinal][, i] <- factor(ifelse(is.na(test[, cols_ordinal][, i]), 
+                                             -1, test[, cols_ordinal][, i]))
 }
 # Categorical features: Set as new category missing
 for (i in 1:sum(cols_categorical)) {
-  train[, cols_categorical][, i] <- ifelse(is.na(train[, cols_categorical][, i]), 
-                                           "missing", train[, cols_categorical][, i])
-  test[, cols_categorical][, i] <- ifelse(is.na(test[, cols_categorical][, i]), 
-                                          "missing", test[, cols_categorical][, i])
+  train[, cols_categorical][, i] <- factor(ifelse(is.na(train[, cols_categorical][, i]), 
+                                                  "missing", train[, cols_categorical][, i]))
+  test[, cols_categorical][, i] <- factor(ifelse(is.na(test[, cols_categorical][, i]), 
+                                                 "missing", test[, cols_categorical][, i]))
 }
 
 # Add engineered features to data

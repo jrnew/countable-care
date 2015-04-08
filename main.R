@@ -1,6 +1,7 @@
 rm(list = ls())
 gc()
 setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
+data_dir <- "data"
 fig_dir <- "fig"
 results_dir <- "results"
 dir.create(fig_dir, showWarnings = FALSE)
@@ -9,102 +10,127 @@ dir.create("submit", showWarnings = FALSE)
 get_notifications <- FALSE
 if (get_notifications) {
   library(RPushbullet)
-  options(error = function() { # Be notified when there is an error
-    pbPost("note", "Error!", geterrmessage(), recipients = c(1, 2))
-  })
+  # options(error = function() { # Be notified when there is an error
+  #   pbPost("note", "Error!", geterrmessage(), recipients = c(1, 2))
+  # })
 }
 #----------------------------------------------------------------------
 write_submission <- function(probs, model_name) {
   file_path <- file.path("submit", paste0(model_name, ".csv"))
   submit <- read.csv("data/SubmissionFormat.csv")
-  # if (!all.equal(dim(submit[, 2:ncol(submit)]), dim(probs)))
-  #   stop(paste0("probs should be of dimensions ", dim(submit[, 2:ncol(submit)]), "!"))
   submit[, 2:ncol(submit)] <- probs
   if (file.exists(file_path))
     stop(paste0(file_path, " already exists!"))
   write.csv(submit, file.path(file_path), row.names = FALSE)
   message(paste0("Results written to ", file_path))
 }
-
+#----------------------------------------------------------------------
 seed <- 12345
-# Read in data
-train_readin <- read.csv("data/train_values.csv")
-ytrain <- read.csv("data/train_labels.csv")
-test_readin <- read.csv("data/test_values.csv")
+library(caret)
+# List all models in caret
+names(getModelInfo())
 
-# Check for columns with only missing values or constant values and drop them
-cols_missingvalues <- sapply(train_readin,
-                             function(x) if (is.factor(x)) all(x == "") else all(is.na(x)))
-sum(cols_missingvalues) # 14
-names(train_readin)[cols_missingvalues]
-cols_constant <- sapply(train_readin, function(x) length(unique(x)) == 1)
-sum(cols_constant) # 20
-names(train_readin)[cols_constant]
-dim(train_readin); dim(test_readin)
-train <- train_readin[, !cols_missingvalues & !cols_constant]
-test <- test_readin[, !cols_missingvalues & !cols_constant]
-dim(train_readin); dim(test_readin)
-dim(train); dim(test)
+# Load data
+load(file.path(data_dir, "data.rda"))
+train <- data$train
+ytrain <- data$ytrain
+for (i in 1:ncol(ytrain))
+  ytrain[, i] <- factor(ytrain[, i])
+test <- data$test
 
-# RF can only digest factors with up to 32 levels
-cols_nlevels <- apply(train, 2, function(x) length(unique(x)))
-cols_morethan32levels <- (cols_ordinal | cols_categorical) & cols_nlevels > 32
-names(train)[cols_morethan32levels]
-sum(cols_morethan32levels)
+# Create data partitions of 80% and 20%
+ntrain <- nrow(train)
+train_indices <- sample(1:ntrain)[1:floor(ntrain*0.8)]
+train_val <- train[-train_indices, ]
 
-# Impute missing values
-# http://trevorstephens.com/post/73770963794/titanic-getting-started-with-r-part-5-random
-# Impute with mean/median
+# Set up caret models
+train_control <- trainControl(method = "cv", number = 10, returnResamp = "none")
 
-# Impute with a decision tree
-# Agefit <- rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Embarked + Title + FamilySize,
-#                 data=combi[!is.na(combi$Age),], method="anova")
-# combi$Age[is.na(combi$Age)] <- predict(Agefit, combi[is.na(combi$Age),])
-#----------------------------------------------------------------------
-# Random probability drawn from U(0, 1)
-probs <- matrix(runif(nrow(test)*(ncol(ytrain) - 1)), nrow(test), ncol(ytrain) - 1)
-write_submission(probs, paste0("unifseed", seed))
-# Constant probability of 0.5
-probs <- matrix(0.5, nrow(test), ncol(ytrain) - 1)
-write_submission(probs, "constant0.5")
-# Constant probability of proportion for each service
-ytrain_props <- apply(ytrain[, -1], 2, mean)
-probs <- matrix(rep(ytrain_props, each = nrow(test)), nrow(test), ncol(ytrain) - 1)
-write_submission(probs, "constantprop")
-#----------------------------------------------------------------------
-# Random forest
-library(randomForest)
-probs <- matrix(NA, nrow(test), ncol(ytrain) - 1)
-for (i in 1:ncol(ytrain)) {
-  target <- ytrain[, i]
-  model <- randomForest(target ~ ., data = train, 
-                        ntree = 1000, importance = TRUE)
-  save(model, file = file.path(results_dir, paste0("rf_ntrees1000", i)))
-  probs[, i] <- predict(model, newdata = test, type = "prob")
+mod_types <- c("rf", "gbm", "svmRadial")
+mod <- list()
+probs <- matrix(NA, nrow(test), ncol(ytrain))
+for (mod_type in mod_types) {
+  for (svc_index in 1:ncol(ytrain)) {
+    
+    # Testing!!!
+    # mod_type <- "rf"
+    # train_indices <- 1:10
+    
+    # Train all the models with train data
+    mod[[svc_index]] <- train(train[train_indices, ], ytrain[train_indices, svc_index], 
+                              method = mod_type, trControl = train_control)
+    
+    # Predict on test data
+    probs[, i] <- predict(mod[[svc_index]], test, type = "prob")
+    
+    # Get predictions for each model and add them back to themselves
+    # train_val[[paste0(mod_type, "_PROB"]] <- predict(mod[[svc_index]], train_val, type = "prob")
+    # test[[paste0(mod_type, "_PROB"]] <- predict(mod[[svc_index]], test, type = "prob")
+    
+    # Run an ensemble model to blend all the predicted probabilities
+    # mod_ensemble[[svc_index]] <- train(train_val, ytrain[-train_indices, svc_index], 
+    #                                    method = "lasso", trControl = train_control)
+    
+    # Predict on test data
+    # preds <- predict(mod_ensemble[[svc_index]], test, type = "prob")
+  }
+  write_submission(probs, paste0(mod_type, "seed", seed))
+  save(mod, file = file.path(results_dir, paste0("mod_", model_type, ".rda")))
+  if (get_notifications)
+    pbPost(type = "note", 
+           title = "stat222", 
+           body = paste0(mod_type, " done!"),
+           recipients = c(1, 2))
 }
-write_submission(probs, paste0("rf_ntrees1000seed", seed))
-if (get_notifications)
-  pbPost(type = "note", 
-         title = "stat222", 
-         body = "RF done!",
-         recipients = c(1, 2))
+#----------------------------------------------------------------------
+# # Random probability drawn from U(0, 1)
+# probs <- matrix(runif(nrow(test)*(ncol(ytrain))), nrow(test), ncol(ytrain))
+# write_submission(probs, paste0("unifseed", seed))
+# # Constant probability of 0.5
+# probs <- matrix(0.5, nrow(test), ncol(ytrain))
+# write_submission(probs, "constant0.5")
+# # Constant probability of proportion for each service
+# ytrain_props <- apply(ytrain, 2, mean)
+# probs <- matrix(rep(ytrain_props, each = nrow(test)), nrow(test), ncol(ytrain))
+# write_submission(probs, "constantprop")
+#----------------------------------------------------------------------
+# # Random forest
+# library(randomForest)
+# probs <- matrix(NA, nrow(test), ncol(ytrain) - 1)
+# for (i in 1:ncol(ytrain)) {
+#   target <- ytrain[, i]
+#   model <- randomForest(target ~ ., data = train, 
+#                         ntree = 1000, importance = TRUE)
+#   save(model, file = file.path(results_dir, paste0("rf_ntrees1000", i)))
+#   probs[, i] <- predict(model, newdata = test, type = "prob")
+# }
+# write_submission(probs, paste0("rf_ntrees1000seed", seed))
+# if (get_notifications)
+#   pbPost(type = "note", 
+#          title = "stat222", 
+#          body = "RF done!",
+#          recipients = c(1, 2))
+# 
+# # GBM
+# library(gbm)
+# for (i in 1:ncol(ytrain)) {
+#   target <- ytrain[, i]
+#   model <- gbm(target ~ ., data = train, 
+#                distribution = "bernoulli", 
+#                n.trees = 1000, verbose = TRUE)
+#   save(model, file = file.path(results_dir, paste0("gbm_ntrees1000", i)))
+#   probs[, i] <- predict(object = model, newdata = test, type = "response", n.trees = 50)
+# }
+# write_submission(probs, paste0("gbm_ntrees1000seed", seed))
+# if (get_notifications)
+#   pbPost(type = "note", 
+#          title = "stat222", 
+#          body = "GBM done!",
+#          recipients = c(1, 2))
 
-# GBM
-library(gbm)
-for (i in 1:ncol(ytrain)) {
-  target <- ytrain[, i]
-  model <- gbm(target ~ ., data = train, 
-               distribution = "bernoulli", 
-               n.trees = 1000, verbose = TRUE)
-  save(model, file = file.path(results_dir, paste0("gbm_ntrees1000", i)))
-  probs[, i] <- predict(object = model, newdata = test, type = "response", n.trees = 50)
-}
-write_submission(probs, paste0("gbm_ntrees1000seed", seed))
-if (get_notifications)
-  pbPost(type = "note", 
-         title = "stat222", 
-         body = "GBM done!",
-         recipients = c(1, 2))
+# library(e1071)  
+# svm_fit<-svm(y~x1+x2+x3,data=training)  
+# svm_predictions<-predict(svm_fit,newdata=testing)  
 #----------------------------------------------------------------------
 # SL.library <- c("SL.gam", "SL.gbm", "SL.glm", "SL.glmnet",
 #                 "SL.nnet", "SL.randomForest",  
