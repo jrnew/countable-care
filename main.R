@@ -1,13 +1,15 @@
 rm(list = ls())
 gc()
-setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
+run_on_server <- FALSE
+if (run_on_server)
+  setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
 data_dir <- "data"
 fig_dir <- "fig"
 results_dir <- "results"
 dir.create(fig_dir, showWarnings = FALSE)
 dir.create(results_dir, showWarnings = FALSE)
 dir.create("submit", showWarnings = FALSE)
-get_notifications <- FALSE
+get_notifications <- ifelse(run_on_server, TRUE, FALSE)
 if (get_notifications) {
   library(RPushbullet)
   # options(error = function() { # Be notified when there is an error
@@ -27,16 +29,18 @@ write_submission <- function(probs, model_name) {
 #----------------------------------------------------------------------
 seed <- 12345
 library(caret)
+library(e1071)
 # List all models in caret
-names(getModelInfo())
+# names(getModelInfo())
 
 # Load data
+# Treat ordinal as categorical or continuous? #############
 load(file.path(data_dir, "data.rda"))
+load(file.path(data_dir, "data_dummy.rda"))
+load(file.path(data_dir, "data_dummyc.rda"))
 train <- data$train
-ytrain <- data$ytrain
-for (i in 1:ncol(ytrain))
-  ytrain[, i] <- factor(ytrain[, i])
 test <- data$test
+ytrain <- data$ytrain
 
 # Create data partitions of 80% and 20%
 ntrain <- nrow(train)
@@ -46,22 +50,26 @@ train_val <- train[-train_indices, ]
 # Set up caret models
 train_control <- trainControl(method = "cv", number = 10, returnResamp = "none")
 
-mod_types <- c("rf", "gbm", "svmRadial")
+# mod_types <- c("rf", "gbm", "svmRadial")
+# mod_types <- c("gbm")
+mod_types <- c("pls")
 mod <- list()
 probs <- matrix(NA, nrow(test), ncol(ytrain))
 for (mod_type in mod_types) {
   for (svc_index in 1:ncol(ytrain)) {
     
     # Testing!!!
-    # mod_type <- "rf"
-    # train_indices <- 1:10
+    # mod_type <- "pls"
+    # train_indices <- 1:100
+    # svc_index <- 1
     
     # Train all the models with train data
     mod[[svc_index]] <- train(train[train_indices, ], ytrain[train_indices, svc_index], 
                               method = mod_type, trControl = train_control)
     
     # Predict on test data
-    probs[, i] <- predict(mod[[svc_index]], test, type = "prob")
+    probs[, svc_index] <- predict(object = mod[[svc_index]], newdata = test, 
+                                  type = "prob")$yes
     
     # Get predictions for each model and add them back to themselves
     # train_val[[paste0(mod_type, "_PROB"]] <- predict(mod[[svc_index]], train_val, type = "prob")
@@ -75,7 +83,7 @@ for (mod_type in mod_types) {
     # preds <- predict(mod_ensemble[[svc_index]], test, type = "prob")
   }
   write_submission(probs, paste0(mod_type, "seed", seed))
-  save(mod, file = file.path(results_dir, paste0("mod_", model_type, ".rda")))
+  save(mod, file = file.path(results_dir, paste0("mod_", mod_type, ".rda")))
   if (get_notifications)
     pbPost(type = "note", 
            title = "stat222", 
@@ -129,7 +137,7 @@ for (mod_type in mod_types) {
 #          recipients = c(1, 2))
 
 # library(e1071)  
-# svm_fit<-svm(y~x1+x2+x3,data=training)  
+# mod_svm <- svm(train[train_indices, ], ytrain[train_indices, svc_index])
 # svm_predictions<-predict(svm_fit,newdata=testing)  
 #----------------------------------------------------------------------
 # SL.library <- c("SL.gam", "SL.gbm", "SL.glm", "SL.glmnet",

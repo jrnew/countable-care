@@ -75,9 +75,9 @@ sum(cols_missing) # 1159
 # Remaining number of features, not including id
 sum(!cols_constant & !cols_missing) - 1 # 213
 
-# Remove above features
-train <- train_readin[, !cols_constant & !cols_missing]
-test <- test_readin[, !cols_constant & !cols_missing]
+# Remove above features and id
+train <- train_readin[, names(train_readin) != "id" & !cols_constant & !cols_missing]
+test <- test_readin[, names(train_readin) != "id" & !cols_constant & !cols_missing]
 
 # Column types
 colnames_all <- names(train)
@@ -98,16 +98,16 @@ for (i in 1:sum(cols_numeric)) {
 # Ordinal features: Set as -1
 # table(sapply(train[, cols_ordinal], min, na.rm = TRUE)) # min is 0 or 1
 for (i in 1:sum(cols_ordinal)) {
-  train[, cols_ordinal][, i] <- factor(ifelse(is.na(train[, cols_ordinal][, i]), 
+  train[, cols_ordinal][, i] <- as.integer(ifelse(is.na(train[, cols_ordinal][, i]), 
                                               -1, train[, cols_ordinal][, i]))
-  test[, cols_ordinal][, i] <- factor(ifelse(is.na(test[, cols_ordinal][, i]), 
+  test[, cols_ordinal][, i] <- as.integer(ifelse(is.na(test[, cols_ordinal][, i]), 
                                              -1, test[, cols_ordinal][, i]))
 }
 # Categorical features: Set as new category missing
 for (i in 1:sum(cols_categorical)) {
-  train[, cols_categorical][, i] <- factor(ifelse(is.na(train[, cols_categorical][, i]), 
+  train[, cols_categorical][, i] <- as.factor(ifelse(is.na(train[, cols_categorical][, i]), 
                                                   "missing", train[, cols_categorical][, i]))
-  test[, cols_categorical][, i] <- factor(ifelse(is.na(test[, cols_categorical][, i]), 
+  test[, cols_categorical][, i] <- as.factor(ifelse(is.na(test[, cols_categorical][, i]), 
                                                  "missing", test[, cols_categorical][, i]))
 }
 
@@ -119,12 +119,36 @@ test$num_missing_numeric <- num_missing_numeric_test
 test$num_missing_ordinal <- num_missing_ordinal_test
 test$num_missing_categorical <- num_missing_categorical_test
 
+# Convert prediction label to alphabetical factor, 
+# else it throws error in caret::predict
+for (i in 1:ncol(ytrain))
+  ytrain[, i] <- factor(ifelse(ytrain[, i] == 1, "yes", "no"))
+
 # Save processed data to file
 data <- list(train = train,
              ytrain = ytrain[, -1], # Drop id column 
              test = test, 
              prop_missing_cutoff = prop_missing_cutoff)
 save(data, file = file.path(data_dir, "data.rda"))
+
+# Create dummy variables for ordinal and categorical variables
+library(caret)
+dummy <- dummyVars(~ ., data = train, sep = "_", fullRank = TRUE)
+train_dummy <- predict(dummy, train)
+test_dummy <- predict(dummy, test)
+data$train <- train_dummy
+data$test <- test_dummy
+save(data, file = file.path(data_dir, "data_dummy.rda"))
+
+# Create dummy variables for categorical variables
+dummy <- dummyVars(as.formula(paste0("~", paste(colnames_all[cols_categorical], collapse = " + "))), 
+                   data = train, sep = "_", fullRank = TRUE)
+train_dummy <- predict(dummy, train)
+test_dummy <- predict(dummy, test)
+data$train <- train_dummy
+data$test <- test_dummy
+save(data, file = file.path(data_dir, "data_dummyc.rda"))
+
 #----------------------------------------------------------------------
 #----------------------------------------------------------------------
 # Further data processing
