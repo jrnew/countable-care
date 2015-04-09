@@ -9,9 +9,11 @@ dir.create(results_dir, showWarnings = FALSE)
 dir.create("submit", showWarnings = FALSE)
 #----------------------------------------------------------------------
 # Read in data
-train_readin <- read.csv(file.path(data_dir, "train_values.csv"), na.strings = "")
+train_readin <- read.csv(file.path(data_dir, "train_values.csv"), 
+                         stringsAsFactors = FALSE, na.strings = "")
 ytrain <- read.csv(file.path(data_dir, "train_labels.csv"))
-test_readin <- read.csv(file.path(data_dir, "test_values.csv"), na.strings = "")
+test_readin <- read.csv(file.path(data_dir, "test_values.csv"), 
+                        stringsAsFactors = FALSE, na.strings = "")
 #----------------------------------------------------------------------
 # Data exploration
 # Column types
@@ -70,10 +72,10 @@ num_missing_categorical_test <- apply(test_readin[, cols_categorical], 1, functi
 prop_missing_cutoff <- 0.5
 prop_missing <- sapply(train_readin, function(x) mean(is.na(x)))
 cols_missing <- prop_missing > prop_missing_cutoff
-sum(cols_missing) # 1159
+sum(cols_missing) # 1159 for 0.5, 1038 for 0.8
 
 # Remaining number of features, not including id
-sum(!cols_constant & !cols_missing) - 1 # 213
+sum(!cols_constant & !cols_missing) - 1 # 213 for 0.5, 334 for 0.8
 
 # Remove above features and id
 train <- train_readin[, names(train_readin) != "id" & !cols_constant & !cols_missing]
@@ -104,11 +106,39 @@ for (i in 1:sum(cols_ordinal)) {
                                              -1, test[, cols_ordinal][, i]))
 }
 # Categorical features: Set as new category missing
+# For categories in test set but not in train set, also set to missing
+cols_unknownlevels <- NULL
+for (i in 1:sum(cols_categorical)) {
+  if (any(!is.na(test[, cols_categorical][, i]) & 
+            !(test[, cols_categorical][, i] %in% unique(train[, cols_categorical][, i])))) {
+    cols_unknownlevels <- c(cols_unknownlevels, i)
+    levels_train <- unique(train[, cols_categorical][, i])
+    levels_train <- ifelse(is.na(levels_train), "missing", as.character(levels_train))
+    levels_test <- unique(test[, cols_categorical][, i])
+    levels_test <- ifelse(is.na(levels_test), "missing", as.character(levels_test))
+    if (!("missing" %in% levels_train)) {
+      print(i)
+      print(levels_test[!(levels_test %in% levels_train)])
+      print("---")
+    }
+  }
+}
+# Ad-hoc change:
+# Only i = 163 has 1 obs with a category found in test but not train set AND 
+# no missing category in train set. We'll set it to the most frequently occurring
+# category p here.
+i <- ifelse(prop_missing_cutoff == 0.5, 163, 246)
+test[, cols_categorical][, i] <- ifelse(test[, cols_categorical][, i] == "E", "p", 
+                                        test[, cols_categorical][, i])
+
 for (i in 1:sum(cols_categorical)) {
   train[, cols_categorical][, i] <- as.factor(ifelse(is.na(train[, cols_categorical][, i]), 
                                                   "missing", train[, cols_categorical][, i]))
-  test[, cols_categorical][, i] <- as.factor(ifelse(is.na(test[, cols_categorical][, i]), 
-                                                 "missing", test[, cols_categorical][, i]))
+  test[, cols_categorical][, i] <- as.factor(ifelse(is.na(test[, cols_categorical][, i]),
+                                                    "missing",
+                                                    ifelse(!(test[, cols_categorical][, i] %in%
+                                                      unique(train[, cols_categorical][, i])),
+                                                      "missing", test[, cols_categorical][, i])))
 }
 
 # Add engineered features to data
@@ -131,14 +161,15 @@ data <- list(train = train,
              prop_missing_cutoff = prop_missing_cutoff)
 save(data, file = file.path(data_dir, "data.rda"))
 
-# Create dummy variables for categorical variables
-dummy <- dummyVars(as.formula(paste0("~", paste(colnames_all[cols_categorical], collapse = " + "))), 
-                   data = train, sep = "_", fullRank = TRUE)
-train_dummy <- predict(dummy, train)
-test_dummy <- predict(dummy, test)
-data$train <- train_dummy
-data$test <- test_dummy
-save(data, file = file.path(data_dir, "data_dummy.rda"))
+# # Create dummy variables for categorical variables
+# dummy <- dummyVars(as.formula(paste0("~", paste(colnames_all[cols_categorical], collapse = " + "))), 
+#                    data = train, sep = "_", fullRank = TRUE)
+# train_dummy <- predict(dummy, train)
+# test_dummy <- predict(dummy, test)
+# dim(train_dummy); dim(test_dummy)
+# data$train <- train_dummy
+# data$test <- test_dummy
+# save(data, file = file.path(data_dir, "data_dummy.rda"))
 #----------------------------------------------------------------------
 #----------------------------------------------------------------------
 # Further data processing

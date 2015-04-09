@@ -1,7 +1,7 @@
 rm(list = ls())
 gc()
-run_on_server <- FALSE
-if (run_on_server)
+run_on_server <- TRUE
+if (!run_on_server)
   setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
 data_dir <- "data"
 fig_dir <- "fig"
@@ -28,16 +28,15 @@ write_submission <- function(probs, model_name) {
 }
 #----------------------------------------------------------------------
 seed <- 12345
+set.seed(seed)
 library(caret)
 library(e1071)
 # List all models in caret
 # names(getModelInfo())
 
 # Load data
-# Treat ordinal as categorical or continuous? #############
 load(file.path(data_dir, "data.rda"))
-load(file.path(data_dir, "data_dummy.rda"))
-load(file.path(data_dir, "data_dummyc.rda"))
+# load(file.path(data_dir, "data_dummy.rda"))
 train <- data$train
 test <- data$test
 ytrain <- data$ytrain
@@ -51,8 +50,8 @@ train_val <- train[-train_indices, ]
 train_control <- trainControl(method = "cv", number = 10, returnResamp = "none")
 
 # mod_types <- c("rf", "gbm", "svmRadial")
-# mod_types <- c("gbm")
-mod_types <- c("pls")
+mod_types <- c("gbm")
+# mod_types <- c("pls")
 mod <- list()
 probs <- matrix(NA, nrow(test), ncol(ytrain))
 for (mod_type in mod_types) {
