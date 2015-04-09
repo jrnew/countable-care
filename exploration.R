@@ -162,6 +162,10 @@ test$num_missing_numeric <- num_missing_numeric_test
 test$num_missing_ordinal <- num_missing_ordinal_test
 test$num_missing_categorical <- num_missing_categorical_test
 
+# Convert release variable to factor, else it throws error
+train$release <- as.factor(train$release)
+test$release <- as.factor(test$release)
+
 # Convert prediction label to alphabetical factor, 
 # else it throws error in caret::predict
 for (i in 1:ncol(ytrain))
@@ -176,18 +180,19 @@ save(data, file = file.path(data_dir, paste0("data_cutoff", prop_missing_cutoff,
 #----------------------------------------------------------------------
 #----------------------------------------------------------------------
 # Further data processing
-# RF can only digest factors with up to 32 levels
-cols_nlevels <- apply(train, 2, function(x) length(unique(x)))
-cols_morethan32levels <- (cols_ordinal | cols_categorical) & cols_nlevels > 32
-names(train)[cols_morethan32levels] # only ordinal features have this problem
-sum(cols_morethan32levels)
-pdf(file.path(fig_dir, "features-with-more-than-32-levels.pdf"), width = 18, height = 15)
-par(mar = c(4.5, 4.5, 4.5, 2), mfrow = c(5, 6))
-for (i in 1:sum(cols_morethan32levels)) {
-  barplot(train[, cols_morethan32levels][, i])
-  print(range(train[, cols_morethan32levels][, i], na.rm = TRUE))
-}
-dev.off()
+# RF can only digest factors with up to 53 levels
+cols_nlevels <- apply(train[, cols_categorical], 2, 
+                      function(x) length(unique(x)))
+cols_morethan53levels <- cols_nlevels > 53
+sum(cols_morethan32levels) # none
+names(train)[cols_morethan53levels]
+# pdf(file.path(fig_dir, "features-with-more-than-53-levels.pdf"), width = 18, height = 15)
+# par(mar = c(4.5, 4.5, 4.5, 2), mfrow = c(5, 6))
+# for (i in 1:sum(cols_morethan32levels)) {
+#   barplot(train[, cols_morethan32levels][, i])
+#   print(range(train[, cols_morethan32levels][, i], na.rm = TRUE))
+# }
+# dev.off()
 #----------------------------------------------------------------------
 # Check number of observations per survey release
 table(train_readin$release)
