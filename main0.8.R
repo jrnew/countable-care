@@ -35,7 +35,7 @@ library(e1071)
 # names(getModelInfo())
 
 # Load data
-prop_missing_cutoff <- 0.5
+prop_missing_cutoff <- 0.8
 load(file = file.path(data_dir, paste0("data_cutoff", prop_missing_cutoff, ".rda")))
 train <- data$train
 test <- data$test

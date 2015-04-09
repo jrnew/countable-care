@@ -7,6 +7,7 @@ results_dir <- "results"
 dir.create(fig_dir, showWarnings = FALSE)
 dir.create(results_dir, showWarnings = FALSE)
 dir.create("submit", showWarnings = FALSE)
+prop_missing_cutoff <- 0.8
 #----------------------------------------------------------------------
 # Read in data
 train_readin <- read.csv(file.path(data_dir, "train_values.csv"), 
@@ -69,7 +70,6 @@ num_missing_ordinal_test <- apply(test_readin[, cols_ordinal], 1, function(x) su
 num_missing_categorical_test <- apply(test_readin[, cols_categorical], 1, function(x) sum(is.na(x)))
 #----------------------------------------------------------------------
 # Check for features with proportion of missing values > prop_missing_cutoff
-prop_missing_cutoff <- 0.8
 prop_missing <- sapply(train_readin, function(x) mean(is.na(x)))
 cols_missing <- prop_missing > prop_missing_cutoff
 sum(cols_missing) # 1159 for 0.5, 1038 for 0.8
@@ -105,18 +105,15 @@ for (i in 1:sum(cols_ordinal)) {
   test[, cols_ordinal][, i] <- as.integer(ifelse(is.na(test[, cols_ordinal][, i]), 
                                              -1, test[, cols_ordinal][, i]))
 }
-# Categorical features: Set as new category missing
-# For categories in test set but not in train set, also set to missing
-# If train set has no missing values but test set does, set values in test
-# set to most frequently-occurring category in train set
+# Categorical features
+# Check for: i) features with categories in test but not train set.
+# ii) features with missing values in test but not train set
 cols_unknownlevels <- NULL
 cols_nomissingintrain <- NULL
-values_toreplace <- NULL
 for (i in 1:sum(cols_categorical)) {
   if (any(is.na(test[, cols_categorical][, i])) & all(!is.na(train[, cols_categorical][, i]))) {
     print(i)
     cols_nomissingintrain <- c(cols_nomissingintrain, i)
-    values_toreplace <- c(values_toreplace, "missing")
   }
   if (any(!is.na(test[, cols_categorical][, i]) & 
             !(test[, cols_categorical][, i] %in% unique(train[, cols_categorical][, i])))) {
@@ -131,19 +128,11 @@ for (i in 1:sum(cols_categorical)) {
       print("---")
       cols_nomissingintrain <- c(cols_nomissingintrain, 
                                  rep(i, length(levels_test[!(levels_test %in% levels_train)])))
-      values_toreplace <- c(values_toreplace, levels_test[!(levels_test %in% levels_train)])
     }
   }
 }
 
-for (c in seq_along(cols_nomissingintrain)) {
-  i <- cols_nomissingintrain[c]
-  value_old <- values_toreplace[c]
-  value_new <- names(which.max(table(test[, cols_categorical][, i])))
-  test[, cols_categorical][, i] <- ifelse(test[, cols_categorical][, i] == value_old, 
-                                          value_new, 
-                                          test[, cols_categorical][, i])
-}
+# Categorical features: Set as new category missing
 for (i in 1:sum(cols_categorical)) {
   train[, cols_categorical][, i] <- as.factor(ifelse(is.na(train[, cols_categorical][, i]), 
                                                   "missing", train[, cols_categorical][, i]))
@@ -152,6 +141,18 @@ for (i in 1:sum(cols_categorical)) {
                                                     ifelse(!(test[, cols_categorical][, i] %in%
                                                       unique(train[, cols_categorical][, i])),
                                                       "missing", test[, cols_categorical][, i])))
+}
+
+# Set values in test set to most frequently-occurring category in train set for:
+# i) features with categories in test but not train set.
+# ii) features with missing values in test but not train set
+for (c in seq_along(cols_nomissingintrain)) {
+  i <- cols_nomissingintrain[c]
+  value_new <- names(which.max(table(test[, cols_categorical][, i])))
+  test[, cols_categorical][, i] <- as.factor(ifelse(as.character(test[, cols_categorical][, i]) ==
+                                                      "missing", 
+                                                    value_new, 
+                                                    as.character(test[, cols_categorical][, i])))
 }
 
 # Add engineered features to data
