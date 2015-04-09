@@ -69,7 +69,7 @@ num_missing_ordinal_test <- apply(test_readin[, cols_ordinal], 1, function(x) su
 num_missing_categorical_test <- apply(test_readin[, cols_categorical], 1, function(x) sum(is.na(x)))
 #----------------------------------------------------------------------
 # Check for features with proportion of missing values > prop_missing_cutoff
-prop_missing_cutoff <- 0.5
+prop_missing_cutoff <- 0.8
 prop_missing <- sapply(train_readin, function(x) mean(is.na(x)))
 cols_missing <- prop_missing > prop_missing_cutoff
 sum(cols_missing) # 1159 for 0.5, 1038 for 0.8
@@ -107,8 +107,17 @@ for (i in 1:sum(cols_ordinal)) {
 }
 # Categorical features: Set as new category missing
 # For categories in test set but not in train set, also set to missing
+# If train set has no missing values but test set does, set values in test
+# set to most frequently-occurring category in train set
 cols_unknownlevels <- NULL
+cols_nomissingintrain <- NULL
+values_toreplace <- NULL
 for (i in 1:sum(cols_categorical)) {
+  if (any(is.na(test[, cols_categorical][, i])) & all(!is.na(train[, cols_categorical][, i]))) {
+    print(i)
+    cols_nomissingintrain <- c(cols_nomissingintrain, i)
+    values_toreplace <- c(values_toreplace, "missing")
+  }
   if (any(!is.na(test[, cols_categorical][, i]) & 
             !(test[, cols_categorical][, i] %in% unique(train[, cols_categorical][, i])))) {
     cols_unknownlevels <- c(cols_unknownlevels, i)
@@ -120,17 +129,21 @@ for (i in 1:sum(cols_categorical)) {
       print(i)
       print(levels_test[!(levels_test %in% levels_train)])
       print("---")
+      cols_nomissingintrain <- c(cols_nomissingintrain, 
+                                 rep(i, length(levels_test[!(levels_test %in% levels_train)])))
+      values_toreplace <- c(values_toreplace, levels_test[!(levels_test %in% levels_train)])
     }
   }
 }
-# Ad-hoc change:
-# Only i = 163 has 1 obs with a category found in test but not train set AND 
-# no missing category in train set. We'll set it to the most frequently occurring
-# category p here.
-i <- ifelse(prop_missing_cutoff == 0.5, 163, 246)
-test[, cols_categorical][, i] <- ifelse(test[, cols_categorical][, i] == "E", "p", 
-                                        test[, cols_categorical][, i])
 
+for (c in seq_along(cols_nomissingintrain)) {
+  i <- cols_nomissingintrain[c]
+  value_old <- values_toreplace[c]
+  value_new <- names(which.max(table(test[, cols_categorical][, i])))
+  test[, cols_categorical][, i] <- ifelse(test[, cols_categorical][, i] == value_old, 
+                                          value_new, 
+                                          test[, cols_categorical][, i])
+}
 for (i in 1:sum(cols_categorical)) {
   train[, cols_categorical][, i] <- as.factor(ifelse(is.na(train[, cols_categorical][, i]), 
                                                   "missing", train[, cols_categorical][, i]))
@@ -159,17 +172,7 @@ data <- list(train = train,
              ytrain = ytrain[, -1], # Drop id column 
              test = test, 
              prop_missing_cutoff = prop_missing_cutoff)
-save(data, file = file.path(data_dir, "data.rda"))
-
-# # Create dummy variables for categorical variables
-# dummy <- dummyVars(as.formula(paste0("~", paste(colnames_all[cols_categorical], collapse = " + "))), 
-#                    data = train, sep = "_", fullRank = TRUE)
-# train_dummy <- predict(dummy, train)
-# test_dummy <- predict(dummy, test)
-# dim(train_dummy); dim(test_dummy)
-# data$train <- train_dummy
-# data$test <- test_dummy
-# save(data, file = file.path(data_dir, "data_dummy.rda"))
+save(data, file = file.path(data_dir, paste0("data_cutoff", prop_missing_cutoff, ".rda")))
 #----------------------------------------------------------------------
 #----------------------------------------------------------------------
 # Further data processing
