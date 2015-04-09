@@ -1,3 +1,4 @@
+## @knitr data
 rm(list = ls())
 gc()
 setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
@@ -8,14 +9,14 @@ dir.create(fig_dir, showWarnings = FALSE)
 dir.create(results_dir, showWarnings = FALSE)
 dir.create("submit", showWarnings = FALSE)
 prop_missing_cutoff <- 0.8
-#----------------------------------------------------------------------
+
 # Read in data
 train_readin <- read.csv(file.path(data_dir, "train_values.csv"), 
                          stringsAsFactors = FALSE, na.strings = "")
 ytrain <- read.csv(file.path(data_dir, "train_labels.csv"))
 test_readin <- read.csv(file.path(data_dir, "test_values.csv"), 
                         stringsAsFactors = FALSE, na.strings = "")
-#----------------------------------------------------------------------
+
 # Data exploration
 # Column types
 colnames_all <- names(train_readin)
@@ -33,7 +34,7 @@ dev.off()
 # Missing pattern plot
 # library(mi)
 # missing.pattern.plot(train)
-#----------------------------------------------------------------------
+
 # Data processing
 # Check original number of features, not including id
 ncol(train_readin[, -1]) # 1378
@@ -42,7 +43,7 @@ ncol(train_readin[, -1]) # 1378
 cols_constant <- sapply(train_readin, function(x) length(unique(x)) == 1)
 sum(cols_constant) # 20
 # names(train_readin)[cols_constant]
-#----------------------------------------------------------------------
+
 # Feature engineering
 # Column types
 colnames_all <- names(train_readin)
@@ -68,7 +69,7 @@ hist(num_missing_categorical, freq = FALSE,
 num_missing_numeric_test <- apply(test_readin[, cols_numeric], 1, function(x) sum(is.na(x)))
 num_missing_ordinal_test <- apply(test_readin[, cols_ordinal], 1, function(x) sum(is.na(x)))
 num_missing_categorical_test <- apply(test_readin[, cols_categorical], 1, function(x) sum(is.na(x)))
-#----------------------------------------------------------------------
+
 # Check for features with proportion of missing values > prop_missing_cutoff
 prop_missing <- sapply(train_readin, function(x) mean(is.na(x)))
 cols_missing <- prop_missing > prop_missing_cutoff
@@ -88,7 +89,7 @@ table(colnames_type[-c(1, 2)])
 cols_numeric <- colnames_type == "n"
 cols_ordinal <- colnames_type == "o"
 cols_categorical <- colnames_type == "c"
-#----------------------------------------------------------------------
+
 # Missing value imputation for remaining features
 # Numeric features: Set as 0
 for (i in 1:sum(cols_numeric)) {
@@ -105,6 +106,7 @@ for (i in 1:sum(cols_ordinal)) {
   test[, cols_ordinal][, i] <- as.integer(ifelse(is.na(test[, cols_ordinal][, i]), 
                                              -1, test[, cols_ordinal][, i]))
 }
+
 # Categorical features
 # Check for: i) features with categories in test but not train set.
 # ii) features with missing values in test but not train set

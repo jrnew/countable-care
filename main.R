@@ -1,3 +1,4 @@
+## @knitr main
 rm(list = ls())
 gc()
 run_on_server <- TRUE
@@ -16,7 +17,7 @@ if (get_notifications) {
   #   pbPost("note", "Error!", geterrmessage(), recipients = c(1, 2))
   # })
 }
-#----------------------------------------------------------------------
+
 write_submission <- function(probs, model_name) {
   file_path <- file.path("submit", paste0(model_name, ".csv"))
   submit <- read.csv("data/SubmissionFormat.csv")
@@ -26,7 +27,7 @@ write_submission <- function(probs, model_name) {
   write.csv(submit, file.path(file_path), row.names = FALSE)
   message(paste0("Results written to ", file_path))
 }
-#----------------------------------------------------------------------
+
 seed <- 12345
 set.seed(seed)
 library(caret)

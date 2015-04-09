@@ -25,38 +25,32 @@
 %% end.rcode
 
 \begin{document}
-%\maketitle
+\maketitle
 
 \begin{abstract}
   A Bayesian analysis of a randomized response survey was carried out to study the use of cognition-enhancing drugs in the UCB student population and gender-specific differences in this use. About three quarters of the student population do not use cognition-enhancing drugs, while about a tenth use them with a prescription and 14\% use them without a prescription. We concluded that there is no statistically significant difference in drug use between male and female students. \\ 
 	\hfill\break
-	\textbf{Keywords}: countable care
+	\textbf{Keywords}: countable care, driven data competition, machine learning
 \end{abstract}
 \clearpage
 %==================================================
 \section{Introduction}
 \label{sec:introduction}
+
+The competition we have chosen to work on is DrivenData.org’s Countable Care: Modeling Women's Health Care Decisions. The link to the competition can be found at: http://www.drivendata.org/competitions/6/. DrivenData is the equivalent of Kaggle for social causes.
 %==================================================
 \section{Data}
 \label{sec:data}
 
 \subsection{Data description}
+The data consists of responses by women in United States to the National Survey of Family Growth carried out by the United States Center for Disease Control and Prevention. Questions in the survey span topics such as demographics, marriage and reproductive health. There are a total of 14,644 observations, with each observation representing an individual’s responses for one release of the survey (an individual may have participated in multiple rounds of the survey), and a total of 1378 features, including the survey round and 116 numeric (standardized), 1050 categorical and 211 ordinal features that are responses to survey questions. The data has been obfuscated, so it is not given what each feature corresponds to in real terms.
+
 An overview of the survey data is given in Table~\ref{tab-data}.
-
-There are a large number of missing values in the data. There are many features with a high proportion of missing values as shown in Fig~\ref{fig-missing}.
-
-\begin{figure}[htbp]
-  \begin{center}
-		\includegraphics[width = 0.4\textwidth]{fig/"prop-missing-in-columns.pdf"} \\
-		\caption{\textbf{Proportion of missing values in features.}
-		\label{fig-missing}
-	\end{center}
-\end{figure}
 
 \begin{table}[ht]
   \centering
-	\begin{tabular}{@{}|l|c|c|c|c|@{}}
-		\hline
+  \begin{tabular}{@{}|l|c|c|c|c|@{}}
+  	\hline
 		& Male & Female & Missing & Total\\ 
 		\hline
 		All observations & 62 & 46 & 9 & 117 \\ 
@@ -66,6 +60,19 @@ There are a large number of missing values in the data. There are many features 
 	\caption{\textbf{Summary of the survey observations}} 
   \label{tab-data}
 \end{table}
+
+\subsection{Data problems}
+The data is very sparse, with 83\% of the data missing in the train set. There are many features with a high proportion of missing values as shown in Fig~\ref{fig-missing}. This is because are many missing values as some survey questions depend on the response to previous survey questions and may be skipped.
+
+\begin{figure}[htbp]
+    \begin{center}
+		\includegraphics[width = 0.4\textwidth]{fig/"prop-missing-in-columns".pdf}
+		\caption{\textbf{Proportion of missing values in features.}}
+		\label{fig-missing}
+  \end{center}
+\end{figure}
+
+Secondly, columns of predictors/whether a women goes to a healthcare provider for different services may be dependent on each other. Fitting separate independent models for each health care service may result in a loss of information.
 
 \subsection{Data processing}
 Features that contain only missing values or one unique value (i.e. constant value for all women) were dropped from the data. There were 14 and 20 of such features respectively.
@@ -80,11 +87,39 @@ We engineered a number of features, including:
   \item Number of categorical features with missing values for each woman
 \end{itemize}
 
+\subsection{Models}
+We fitted a variety of models, including:
+\begin{itemize}
+  \item Gradient Boosting Machine (GBM)
+\end{itemize}
+
 \subsection{Computation}
-All calculations were carried out in the R programming language, with additional functions from the \texttt{randomForest} and \texttt{randomForest} packages. Annotated code is given in the Appendix in Section \ref{sec:appendix}.
+All calculations were carried out in the \texttt{R} programming language, with additional functions from the \texttt{caret} package. Annotated code is given in the Appendix in Section \ref{sec:appendix}.
 %==================================================
 \section{Results} 
 \label{sec:results}
+
+\subsection{Prediction objective and evaluation metric}
+Binary outcomes denoting if a woman went to a healthcare provider for each of 14 services in the 12 months preceding the survey are given in the training set. The prediction objective is to predict the probability for each of the 3,661 women in the test set of going to a healthcare provider for each of the 14 services. In other words, 3,661 x 14 predicted probabilities are required. The 14 services are not mutually exclusive; a woman can go to more than one service in the 12 months.
+
+The evaluation metric here is the logarithmic loss, defined by $-\frac{1}{n}$. (FILL IN!)
+
+\subsection{Prediction results}
+A summary of the performance of our models on the test set is given in Table~\ref{tab-results}.
+
+\begin{table}[ht]
+  \centering
+  \begin{tabular}{@{}|l|c|c|@{}}
+    \hline
+  	Data set & Model & Log loss\\ 
+		\hline
+  	Missing value cut-off of 50\% & Gradient boosting method & 0.2796 \\ 
+    Missing value cut-off of 80\% & Gradient boosting method & 0.2812 \\
+  	\hline
+	\end{tabular}
+	\caption{\textbf{Summary of model performance on test set.}}
+  \label{tab-results}
+\end{table}
 %==================================================
 \section{Discussion} 
 \label{sec:discussion}
@@ -95,21 +130,15 @@ All calculations were carried out in the R programming language, with additional
 \appendix
 \section*{Appendix}
 \label{sec:appendix}
-
-%% begin.rcode q1, cache=TRUE, eval=FALSE
-%% end.rcode
-
-\section{Appendix}
 %% begin.rcode read-chunk, echo=FALSE
 % library(knitr)
-% read_chunk("proj1.R") 
-% read_chunk("proj1_functions.R") 
+% read_chunk("main.R") 
+% read_chunk("data-exploration-and-processing.R") 
 %% end.rcode
 
-%% begin.rcode proj1_functions, eval=FALSE, cache=FALSE
+%% begin.rcode main, eval=FALSE, cache=FALSE
 %% end.rcode
 
-%% begin.rcode proj1, eval=FALSE, cache=FALSE
+%% begin.rcode data, eval=FALSE, cache=FALSE
 %% end.rcode
-
 \end{document}

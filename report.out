@@ -1,0 +1,14 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{Data}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Data description}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{Data problems}{section.2}% 4
+\BOOKMARK [2][-]{subsection.2.3}{Data processing}{section.2}% 5
+\BOOKMARK [1][-]{section.3}{Methods}{}% 6
+\BOOKMARK [2][-]{subsection.3.1}{Feature engineering}{section.3}% 7
+\BOOKMARK [2][-]{subsection.3.2}{Models}{section.3}% 8
+\BOOKMARK [2][-]{subsection.3.3}{Computation}{section.3}% 9
+\BOOKMARK [1][-]{section.4}{Results}{}% 10
+\BOOKMARK [2][-]{subsection.4.1}{Prediction objective and evaluation metric}{section.4}% 11
+\BOOKMARK [2][-]{subsection.4.2}{Prediction results}{section.4}% 12
+\BOOKMARK [1][-]{section.5}{Discussion}{}% 13
+\BOOKMARK [1][-]{section.6}{References}{}% 14
