@@ -8,7 +8,7 @@ results_dir <- "results"
 dir.create(fig_dir, showWarnings = FALSE)
 dir.create(results_dir, showWarnings = FALSE)
 dir.create("submit", showWarnings = FALSE)
-prop_missing_cutoff <- 0.8
+prop_missing_cutoff <- 0.9
 
 # Read in data
 train_readin <- read.csv(file.path(data_dir, "train_values.csv"), 
@@ -187,7 +187,7 @@ save(data, file = file.path(data_dir, paste0("data_cutoff", prop_missing_cutoff,
 cols_nlevels <- apply(train[, cols_categorical], 2, 
                       function(x) length(unique(x)))
 cols_morethan53levels <- cols_nlevels > 53
-sum(cols_morethan32levels) # none
+sum(cols_morethan53levels) # none
 names(train)[cols_morethan53levels]
 # pdf(file.path(fig_dir, "features-with-more-than-53-levels.pdf"), width = 18, height = 15)
 # par(mar = c(4.5, 4.5, 4.5, 2), mfrow = c(5, 6))
