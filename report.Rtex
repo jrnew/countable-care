@@ -75,7 +75,22 @@ The data is very sparse, with 83\% of the data missing in the train set. There a
 Secondly, columns of predictors/whether a women goes to a healthcare provider for different services may be dependent on each other. Fitting separate independent models for each health care service may result in a loss of information.
 
 \subsection{Data processing}
-Features that contain only missing values or one unique value (i.e. constant value for all women) were dropped from the data. There were 14 and 20 of such features respectively.
+\subsubsection{Imputing Missing Values}
+The dataset was filled with missing values. More specifically, there were more missing values than valid values within the independent variables. Figure 1 showed that most columns were filled with missing values. In fact, 82.6% of the cells in train data were registered as "NA". Since columns with mostly missing values would do no good to the prediction but make the data redundant and slow to run, throwing away columns was considered before fitting the model. From Figure 1, most features had 10,000+ missing values out of 14,662 observations and could thus be thrown away. 
+
+First of all, features that contain only missing values or one unique value (i.e. constant value for all women) were dropped from the data. There were 14 and 20 of such features respectively.
+
+Secondly, features with missing values exceeding a threshold would be dropped. If the threshold was set to be 50%, i.e. columns with proportion of NA's exceeding 50% would be considered invalid, then 1159 out of 1378 independent variables would be discarded. To compare, an 80% cutoff threw away 1038 out of 1378 columns. In practice we experimented with both cutoffs for each model and compared the accuracy resulted from loss of data.
+
+Lastly, after removing invalid columns, NA values left were handled using different approaches for different data types (categorical, numeric or ordinal). Since more than one data type was presented in the independent variables, plus that the dataset was huge and obfuscated, it was hard to use predictions from regression to fill in the NA values. Instead, generic methods were used for each datatype:
+1. For numeric columns, NA's were converted to 0's;
+2. For ordinal columns, NA's were converted to -1;
+3. For categorical columns, new category called "missing" was introduced.
+
+\subsubsection{Introducing Dummy Variables}
+In order to fit certain algorithms (e.g. Ridge, SVM, logit), columns with data type "categorical" were required to be made into dummy variables. Function model.matrix in R was used to introduce dummy columns with categorical columns treated as factors.
+Levels of each categorical variable were compared for train data and test data. Additional levels in test data that did not appear in train data were removed to make sure the models were trained properly. For levels that appeared in train data but not in test data, placeholder columns (columns with all 0's) were introduced to test data to take up the position of that level. This was necessary because it was required that train data and test data have the same number of columns, even after introducing dummy variables.
+
 %==================================================
 \section{Methods}
 \label{sec:methods}
@@ -123,6 +138,16 @@ A summary of the performance of our models on the test set is given in Table~\re
 %==================================================
 \section{Discussion} 
 \label{sec:discussion}
+
+\subsection{Shortcomings and Future Developments}
+One significant feature about this dataset was that it had not one, but fourteen dependent variables (Y's). And the dependent variables were correlated with each other since a woman usually orders more than one health services. Conventional regression models assumed the dimension of Y to be nx1, so did the algorithms in R. Therefore, 14 columns of data were fitted separately using the models, assuming they were independent, which was not actually true. Ignoring the correlation between Y variables may cause loss of accuracy. Application of multivariate methods might be able to increase prediction accuracy.
+
+Methodology of imputing missing values might also result in loss of accuracy. Throwing away columns was a straightforward, but not elegant way to reduce dimension and save computer time. Ideally only columns with all NA's and columns with a single constant should be removed. Moreover, replacing missing values with a global value (e.g. 0 or -1) was a compromise due to the large amount of NA's and obfuscation of dataset. Provided more valid data and smaller size, regressing the missing values on other columns should be a better solution.
+
+Procedure of creating dummy variables could be another source of problem. First of all, some levels in test data had to be dropped (these levels were replaced by "missing"). Secondly, introducing dummy variables dramatically increased dimension of data, without bringing in extra information. Lastly, the sole purpose of introducing placeholder columns (columns with only 0's) in test data was to make the number of columns match for test and train. Given that the model permitted, using factors instead of dummy variables should be more concise.
+
+When regression models yielded prediction for probabilities, some of them might fall out of the range of 0 to 1. Converting these over-bound values to 0 or 1 would dramatically increase the score since log-loss was used for evaluation of prediction. To avoid this problem, values over-bound were replaced with column means. However, a finer way should be adopted to accommodate those values.  
+
 %==================================================
 \section{References}
 \clearpage
