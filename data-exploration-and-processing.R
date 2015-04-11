@@ -8,7 +8,7 @@ results_dir <- "results"
 dir.create(fig_dir, showWarnings = FALSE)
 dir.create(results_dir, showWarnings = FALSE)
 dir.create("submit", showWarnings = FALSE)
-prop_missing_cutoff <- 0.9
+prop_missing_cutoff <- 0.95
 
 # Read in data
 train_readin <- read.csv(file.path(data_dir, "train_values.csv"), 
@@ -155,6 +155,14 @@ for (c in seq_along(cols_nomissingintrain)) {
                                                       "missing", 
                                                     value_new, 
                                                     as.character(test[, cols_categorical][, i])))
+}
+
+# For random forest, ensure that categorical features have same
+# levels in train and test sets
+for (i in 1:sum(cols_categorical)) { 
+  test[, cols_categorical][, i] <- factor(test[, cols_categorical][, i],
+                                          levels = levels(train[, cols_categorical][, i]))
+                                                    
 }
 
 # Add engineered features to data

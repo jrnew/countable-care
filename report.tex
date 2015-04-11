@@ -155,6 +155,9 @@ We fitted a variety of models, including:
 \begin{itemize}
   \item Gradient Boosting Machine (GBM)
 \end{itemize}
+\begin{itemize}
+  \item Ridge Regression
+\end{itemize}
 
 \subsection{Computation}
 All calculations were carried out in the \texttt{R} programming language, with additional functions from the \texttt{caret} package. Annotated code is given in the Appendix in Section \ref{sec:appendix}.
@@ -178,6 +181,8 @@ A summary of the performance of our models on the test set is given in Table~\re
 		\hline
   	Missing value cut-off of 50\% & Gradient boosting method & 0.2796 \\ 
     Missing value cut-off of 80\% & Gradient boosting method & 0.2812 \\
+    Missing value cut-off of 50\% & Ridge Regression & 0.5044 \\
+    Missing value cut-off of 80\% & Ridge Regression & 0.5274 \\
   	\hline
 	\end{tabular}
 	\caption{\textbf{Summary of model performance on test set.}}
@@ -210,7 +215,7 @@ When regression models yielded prediction for probabilities, some of them might 
 \begin{alltt}
 \hlkwd{rm}\hlstd{(}\hlkwc{list} \hlstd{=} \hlkwd{ls}\hlstd{())}
 \hlkwd{gc}\hlstd{()}
-\hlstd{run_on_server} \hlkwb{<-} \hlnum{TRUE}
+\hlstd{run_on_server} \hlkwb{<-} \hlnum{TRUE} \hlcom{###}
 \hlkwa{if} \hlstd{(}\hlopt{!}\hlstd{run_on_server)}
   \hlkwd{setwd}\hlstd{(}\hlstr{"~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care"}\hlstd{)}
 \hlstd{data_dir} \hlkwb{<-} \hlstr{"data"}
@@ -259,14 +264,15 @@ When regression models yielded prediction for probabilities, some of them might 
 \hlcom{# Set up caret models}
 \hlstd{train_control} \hlkwb{<-} \hlkwd{trainControl}\hlstd{(}\hlkwc{method} \hlstd{=} \hlstr{"cv"}\hlstd{,} \hlkwc{number} \hlstd{=} \hlnum{10}\hlstd{,} \hlkwc{returnResamp} \hlstd{=} \hlstr{"none"}\hlstd{)}
 
-\hlstd{mod_types} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"gbm"}\hlstd{,} \hlstr{"rf"}\hlstd{)}
+\hlcom{# mod_types <- c("gbm", "rf")}
+\hlstd{mod_types} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"rf"}\hlstd{)}
 \hlstd{mod} \hlkwb{<-} \hlkwd{list}\hlstd{()}
 \hlstd{probs} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlnum{NA}\hlstd{,} \hlkwd{nrow}\hlstd{(test),} \hlkwd{ncol}\hlstd{(ytrain))}
 \hlkwa{for} \hlstd{(mod_type} \hlkwa{in} \hlstd{mod_types) \{}
   \hlkwa{for} \hlstd{(svc_index} \hlkwa{in} \hlnum{1}\hlopt{:}\hlkwd{ncol}\hlstd{(ytrain)) \{}
 
     \hlcom{# Testing!!!}
-    \hlcom{# mod_type <- "knn"}
+    \hlcom{# mod_type <- "rf"}
     \hlcom{# train_indices <- 1:100}
     \hlcom{# svc_index <- 1}
 
@@ -314,7 +320,7 @@ When regression models yielded prediction for probabilities, some of them might 
 \hlkwd{dir.create}\hlstd{(fig_dir,} \hlkwc{showWarnings} \hlstd{=} \hlnum{FALSE}\hlstd{)}
 \hlkwd{dir.create}\hlstd{(results_dir,} \hlkwc{showWarnings} \hlstd{=} \hlnum{FALSE}\hlstd{)}
 \hlkwd{dir.create}\hlstd{(}\hlstr{"submit"}\hlstd{,} \hlkwc{showWarnings} \hlstd{=} \hlnum{FALSE}\hlstd{)}
-\hlstd{prop_missing_cutoff} \hlkwb{<-} \hlnum{0.9}
+\hlstd{prop_missing_cutoff} \hlkwb{<-} \hlnum{0.95}
 
 \hlcom{# Read in data}
 \hlstd{train_readin} \hlkwb{<-} \hlkwd{read.csv}\hlstd{(}\hlkwd{file.path}\hlstd{(data_dir,} \hlstr{"train_values.csv"}\hlstd{),}
@@ -461,6 +467,14 @@ When regression models yielded prediction for probabilities, some of them might 
                                                       \hlstr{"missing"}\hlstd{,}
                                                     \hlstd{value_new,}
                                                     \hlkwd{as.character}\hlstd{(test[, cols_categorical][, i])))}
+\hlstd{\}}
+
+\hlcom{# For random forest, ensure that categorical features have same}
+\hlcom{# levels in train and test sets}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlnum{1}\hlopt{:}\hlkwd{sum}\hlstd{(cols_categorical)) \{}
+  \hlstd{test[, cols_categorical][, i]} \hlkwb{<-} \hlkwd{factor}\hlstd{(test[, cols_categorical][, i],}
+                                          \hlkwc{levels} \hlstd{=} \hlkwd{levels}\hlstd{(train[, cols_categorical][, i]))}
+
 \hlstd{\}}
 
 \hlcom{# Add engineered features to data}

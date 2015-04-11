@@ -1,7 +1,7 @@
 ## @knitr main
 rm(list = ls())
 gc()
-run_on_server <- TRUE
+run_on_server <- TRUE ###
 if (!run_on_server)
   setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
 data_dir <- "data"
@@ -50,14 +50,15 @@ train_val <- train[-train_indices, ]
 # Set up caret models
 train_control <- trainControl(method = "cv", number = 10, returnResamp = "none")
 
-mod_types <- c("gbm", "rf")
+# mod_types <- c("gbm", "rf")
+mod_types <- c("rf")
 mod <- list()
 probs <- matrix(NA, nrow(test), ncol(ytrain))
 for (mod_type in mod_types) {
   for (svc_index in 1:ncol(ytrain)) {
     
     # Testing!!!
-    # mod_type <- "knn"
+    # mod_type <- "rf"
     # train_indices <- 1:100
     # svc_index <- 1
     

@@ -35,7 +35,7 @@ library(e1071)
 # names(getModelInfo())
 
 # Load data
-prop_missing_cutoff <- 0.8
+prop_missing_cutoff <- 0.95
 load(file = file.path(data_dir, paste0("data_cutoff", prop_missing_cutoff, ".rda")))
 train <- data$train
 test <- data$test
@@ -49,7 +49,7 @@ train_val <- train[-train_indices, ]
 # Set up caret models
 train_control <- trainControl(method = "cv", number = 10, returnResamp = "none")
 
-mod_types <- c("rf")
+mod_types <- c("gbm", "rf")
 mod <- list()
 probs <- matrix(NA, nrow(test), ncol(ytrain))
 for (mod_type in mod_types) {
