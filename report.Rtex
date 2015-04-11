@@ -107,6 +107,9 @@ We fitted a variety of models, including:
 \begin{itemize}
   \item Gradient Boosting Machine (GBM)
 \end{itemize}
+\begin{itemize}
+  \item Ridge Regression
+\end{itemize}
 
 \subsection{Computation}
 All calculations were carried out in the \texttt{R} programming language, with additional functions from the \texttt{caret} package. Annotated code is given in the Appendix in Section \ref{sec:appendix}.
@@ -130,6 +133,8 @@ A summary of the performance of our models on the test set is given in Table~\re
 		\hline
   	Missing value cut-off of 50\% & Gradient boosting method & 0.2796 \\ 
     Missing value cut-off of 80\% & Gradient boosting method & 0.2812 \\
+    Missing value cut-off of 50\% & Ridge Regression & 0.5044 \\
+    Missing value cut-off of 80\% & Ridge Regression & 0.5274 \\
   	\hline
 	\end{tabular}
 	\caption{\textbf{Summary of model performance on test set.}}
