@@ -155,3 +155,54 @@ data <- list(train = train,
              test = test, 
              prop_missing_cutoff = prop_missing_cutoff)
 save(data, file = file.path(data_dir, paste0("data_cutoff", prop_missing_cutoff, ".rda")))
+
+### Coding dummy variables (for Ridge, OLS and logit):
+makeDummy <- function(train, test){#Make dummies for categorical, and feature 'release':
+  dum_release <- model.matrix(~train[,1])
+  # Convert the feature 'release' to dummy variable
+  train <- cbind(dum_release[,-1], train[,-1])
+  first_cat <- grep("c_", colnames(train))[1]
+  train1 <- train[,c(1:(first_cat-1), (ncol(train)-2):ncol(train))]
+  
+  dum_release <- model.matrix(~test[,1])
+  test <- cbind(dum_release[,-1], test[,-1])
+  test1 <- test[,c(1:(first_cat-1), (ncol(test)-2):ncol(test))]
+  
+  for (i in first_cat:(ncol(train)-3)){
+    if (length(levels(train[,i])) >= length(levels(test[,i]))){
+      dummy <- model.matrix(~train[,i])
+      train1 <- cbind(train1, dummy[,-1])
+    }
+    else{#Generate placeholder columns for missing levels
+      extra <- length(levels(test[,i]))-length(levels(train[,i]))
+      mat0 <- matrix(rep(0,nrow(train)*extra), ncol=extra)
+      dummy <- model.matrix(~train[,i])
+      train1 <- cbind(train1, dummy[,-1], mat0)
+    }
+  }
+  
+  for (i in first_cat:(ncol(train)-3)){#Repeat for test data
+    if (length(levels(test[,i])) >= length(levels(train[,i]))){
+      dummy <- model.matrix(~test[,i])
+      test1 <- cbind(test1, dummy[,-1])
+    }
+    else{
+      extra <- length(levels(train[,i]))-length(levels(test[,i]))
+      mat0 <- matrix(rep(0,nrow(test)*extra), ncol=extra)
+      dummy <- model.matrix(~test[,i])
+      test1 <- cbind(test1, dummy[,-1], mat0)
+    }
+  }
+  
+  return(list(train1, test1))
+}
+
+# setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
+load("data/data.rda")
+train <- data$train
+test <- data$test
+
+dummy <- makeDummy(train,test)
+data_dummy_0.5 <- list(dummy[[1]], dummy[[2]], data$ytrain, 0.5)
+names(data_dummy_0.5) <- c("train", "test", "ytrain", "na_cutoff")
+save(data_dummy_0.5, file="data_dummy_0.5.rda")

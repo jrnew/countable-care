@@ -153,6 +153,54 @@ test <- data$test
 # }
 }
 
+# Ridge Regression (Sample with 50% cutoff)
+# load("data/data_dummy_0.5.rda")
+train <- data_dummy_0.5$train
+test <- data_dummy_0.5$test
+ytrain <- data_dummy_0.5$ytrain
+train <- as.matrix(train)
+class(train) <- "numeric"
+test <- as.matrix(test)
+class(test) <- "numeric"
+ytrain <- as.matrix(ytrain)
+ytrain[ytrain=="yes"] <- 1
+ytrain[ytrain=="no"] <- 0
+class(ytrain) <- "numeric"
+# Convert train, test and ytrain to numeric matrices, to accomodate glmnet.
+
+library(glmnet)
+
+# Use parallel to speed up
+nCores <- parallel::detectCores()
+doParallel::registerDoParallel(nCores)
+
+# Keep track of the lambdas that give the smallest MSE
+lambdas.min <- rep(0,14)
+result <- matrix(rep(0,nrow(test)*ncol(ytrain)), ncol=ncol(ytrain))
+
+for (i in 1:14){
+  print(i)
+  cv_mod_ridge <- cv.glmnet(train, ytrain[,i], alpha = 0, parallel=TRUE)
+  #Use 10-fold cross validation on 100 default lambda values.
+  lambdas.min[i] <- cv_mod_ridge$lambda.min
+  pred_ridge <- predict(cv_mod_ridge, s = cv_mod_ridge$lambda.min, newx = test)
+  result[,i] <- pred_ridge
+}
+
+# Visualize the lambdas
+plot(x=1:14, y=lambdas.min, xlab="Column# in Y", ylab="Lambda.min", type="h",
+     main="Lambdas with Smallest MSE Using Ridge_CV")
+
+# Deal with values outside of 0 and 1:
+colmean = colMeans(ytrain)
+for (i in 1:14){
+  result[which(result[,i] < 0),i] <- colmean[i]
+  result[which(result[,i] > 1),i] <- colmean[i]
+}
+
+# Write Submission
+write_submission(result, "Ridge0.5")
+
 # Benchmark models
 # Random probability drawn from U(0, 1)
 probs <- matrix(runif(nrow(test)*(ncol(ytrain))), nrow(test), ncol(ytrain))

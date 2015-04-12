@@ -195,6 +195,7 @@ We fitted a variety of models, including:                                       
  \item Random forest
  \item k-nearest neigbors
  \item Ridge regression
+ \item Ordinary Least Squares (OLS)
  \end{itemize}
 
 These models were fitted independently for each of the 14 health care services, ignoring any correlation among them.
@@ -202,7 +203,7 @@ These models were fitted independently for each of the 14 health care services, 
 \subsection{Miscellaneous}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                As discussed in the Data section, it is possible that women in the test set in survey release b would have a probability of 0 of having used services d and n. To test our hypothesis, we produced a version of predictions with the predicted probabilities for these 2 services for women in survey release b set to 0. If our hypothesis is incorrect, our log loss score would be much worse than in the original predictions since the log loss penalizes wrong but confident predictions heavily. Otherwise, it is likely to improve our score.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 \subsection{Computation}
-All calculations were carried out in the \texttt{R} programming language, with additional functions from the \texttt{caret} package. Annotated code is given in the Appendix in Section \ref{sec:appendix}.
+All calculations were carried out in the \texttt{R} programming language, with additional functions from the \texttt{caret} package and the \texttt{glmnet} package. Annotated code is given in the Appendix in Section \ref{sec:appendix}.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 %==================================================
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 \section{Results} 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 \label{sec:results}
@@ -228,10 +229,14 @@ All calculations were carried out in the \texttt{R} programming language, with a
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 Missing value cut-off of 95\% & Gradient boosting method & 0.2622 \\
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 Missing value cut-off of 50\% & Random forest & 0.3037 \\ 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 Missing value cut-off of 80\% & Random forest & 0.3088 \\
+
+Missing value cut-off of 90\% & Random forest & 0.2868 \\
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 Missing value cut-off of 50\% & k-nearest neighbors & 1.0622 \\ 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 Missing value cut-off of 80\% & k-nearest neighbors & 1.1002 \\ 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 Missing value cut-off of 50\% & Ridge regression & 0.5044 \\
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 Missing value cut-off of 80\% & Ridge regression & 0.5274 \\
+
+Missing value cut-off of 50\% & Ordinary Least Squares & 0.4972 \\
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 \hline
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 \end{tabular}
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 \caption{\textbf{Summary of model performance on test set.} The best method is bolded.}
@@ -549,6 +554,57 @@ All calculations were carried out in the \texttt{R} programming language, with a
              \hlkwc{test} \hlstd{= test,}
              \hlkwc{prop_missing_cutoff} \hlstd{= prop_missing_cutoff)}
 \hlkwd{save}\hlstd{(data,} \hlkwc{file} \hlstd{=} \hlkwd{file.path}\hlstd{(data_dir,} \hlkwd{paste0}\hlstd{(}\hlstr{"data_cutoff"}\hlstd{, prop_missing_cutoff,} \hlstr{".rda"}\hlstd{)))}
+
+\hlcom{### Coding dummy variables (for Ridge, OLS and logit):}
+\hlstd{makeDummy} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{train}\hlstd{,} \hlkwc{test}\hlstd{)\{}\hlcom{#Make dummies for categorical, and feature 'release':}
+  \hlstd{dum_release} \hlkwb{<-} \hlkwd{model.matrix}\hlstd{(}\hlopt{~}\hlstd{train[,}\hlnum{1}\hlstd{])}
+  \hlcom{# Convert the feature 'release' to dummy variable}
+  \hlstd{train} \hlkwb{<-} \hlkwd{cbind}\hlstd{(dum_release[,}\hlopt{-}\hlnum{1}\hlstd{], train[,}\hlopt{-}\hlnum{1}\hlstd{])}
+  \hlstd{first_cat} \hlkwb{<-} \hlkwd{grep}\hlstd{(}\hlstr{"c_"}\hlstd{,} \hlkwd{colnames}\hlstd{(train))[}\hlnum{1}\hlstd{]}
+  \hlstd{train1} \hlkwb{<-} \hlstd{train[,}\hlkwd{c}\hlstd{(}\hlnum{1}\hlopt{:}\hlstd{(first_cat}\hlopt{-}\hlnum{1}\hlstd{), (}\hlkwd{ncol}\hlstd{(train)}\hlopt{-}\hlnum{2}\hlstd{)}\hlopt{:}\hlkwd{ncol}\hlstd{(train))]}
+
+  \hlstd{dum_release} \hlkwb{<-} \hlkwd{model.matrix}\hlstd{(}\hlopt{~}\hlstd{test[,}\hlnum{1}\hlstd{])}
+  \hlstd{test} \hlkwb{<-} \hlkwd{cbind}\hlstd{(dum_release[,}\hlopt{-}\hlnum{1}\hlstd{], test[,}\hlopt{-}\hlnum{1}\hlstd{])}
+  \hlstd{test1} \hlkwb{<-} \hlstd{test[,}\hlkwd{c}\hlstd{(}\hlnum{1}\hlopt{:}\hlstd{(first_cat}\hlopt{-}\hlnum{1}\hlstd{), (}\hlkwd{ncol}\hlstd{(test)}\hlopt{-}\hlnum{2}\hlstd{)}\hlopt{:}\hlkwd{ncol}\hlstd{(test))]}
+
+  \hlkwa{for} \hlstd{(i} \hlkwa{in} \hlstd{first_cat}\hlopt{:}\hlstd{(}\hlkwd{ncol}\hlstd{(train)}\hlopt{-}\hlnum{3}\hlstd{))\{}
+    \hlkwa{if} \hlstd{(}\hlkwd{length}\hlstd{(}\hlkwd{levels}\hlstd{(train[,i]))} \hlopt{>=} \hlkwd{length}\hlstd{(}\hlkwd{levels}\hlstd{(test[,i])))\{}
+      \hlstd{dummy} \hlkwb{<-} \hlkwd{model.matrix}\hlstd{(}\hlopt{~}\hlstd{train[,i])}
+      \hlstd{train1} \hlkwb{<-} \hlkwd{cbind}\hlstd{(train1, dummy[,}\hlopt{-}\hlnum{1}\hlstd{])}
+    \hlstd{\}}
+    \hlkwa{else}\hlstd{\{}\hlcom{#Generate placeholder columns for missing levels}
+      \hlstd{extra} \hlkwb{<-} \hlkwd{length}\hlstd{(}\hlkwd{levels}\hlstd{(test[,i]))}\hlopt{-}\hlkwd{length}\hlstd{(}\hlkwd{levels}\hlstd{(train[,i]))}
+      \hlstd{mat0} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlkwd{rep}\hlstd{(}\hlnum{0}\hlstd{,}\hlkwd{nrow}\hlstd{(train)}\hlopt{*}\hlstd{extra),} \hlkwc{ncol}\hlstd{=extra)}
+      \hlstd{dummy} \hlkwb{<-} \hlkwd{model.matrix}\hlstd{(}\hlopt{~}\hlstd{train[,i])}
+      \hlstd{train1} \hlkwb{<-} \hlkwd{cbind}\hlstd{(train1, dummy[,}\hlopt{-}\hlnum{1}\hlstd{], mat0)}
+    \hlstd{\}}
+  \hlstd{\}}
+
+  \hlkwa{for} \hlstd{(i} \hlkwa{in} \hlstd{first_cat}\hlopt{:}\hlstd{(}\hlkwd{ncol}\hlstd{(train)}\hlopt{-}\hlnum{3}\hlstd{))\{}\hlcom{#Repeat for test data}
+    \hlkwa{if} \hlstd{(}\hlkwd{length}\hlstd{(}\hlkwd{levels}\hlstd{(test[,i]))} \hlopt{>=} \hlkwd{length}\hlstd{(}\hlkwd{levels}\hlstd{(train[,i])))\{}
+      \hlstd{dummy} \hlkwb{<-} \hlkwd{model.matrix}\hlstd{(}\hlopt{~}\hlstd{test[,i])}
+      \hlstd{test1} \hlkwb{<-} \hlkwd{cbind}\hlstd{(test1, dummy[,}\hlopt{-}\hlnum{1}\hlstd{])}
+    \hlstd{\}}
+    \hlkwa{else}\hlstd{\{}
+      \hlstd{extra} \hlkwb{<-} \hlkwd{length}\hlstd{(}\hlkwd{levels}\hlstd{(train[,i]))}\hlopt{-}\hlkwd{length}\hlstd{(}\hlkwd{levels}\hlstd{(test[,i]))}
+      \hlstd{mat0} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlkwd{rep}\hlstd{(}\hlnum{0}\hlstd{,}\hlkwd{nrow}\hlstd{(test)}\hlopt{*}\hlstd{extra),} \hlkwc{ncol}\hlstd{=extra)}
+      \hlstd{dummy} \hlkwb{<-} \hlkwd{model.matrix}\hlstd{(}\hlopt{~}\hlstd{test[,i])}
+      \hlstd{test1} \hlkwb{<-} \hlkwd{cbind}\hlstd{(test1, dummy[,}\hlopt{-}\hlnum{1}\hlstd{], mat0)}
+    \hlstd{\}}
+  \hlstd{\}}
+
+  \hlkwd{return}\hlstd{(}\hlkwd{list}\hlstd{(train1, test1))}
+\hlstd{\}}
+
+\hlcom{# setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")}
+\hlkwd{load}\hlstd{(}\hlstr{"data/data.rda"}\hlstd{)}
+\hlstd{train} \hlkwb{<-} \hlstd{data}\hlopt{$}\hlstd{train}
+\hlstd{test} \hlkwb{<-} \hlstd{data}\hlopt{$}\hlstd{test}
+
+\hlstd{dummy} \hlkwb{<-} \hlkwd{makeDummy}\hlstd{(train,test)}
+\hlstd{data_dummy_0.5} \hlkwb{<-} \hlkwd{list}\hlstd{(dummy[[}\hlnum{1}\hlstd{]], dummy[[}\hlnum{2}\hlstd{]], data}\hlopt{$}\hlstd{ytrain,} \hlnum{0.5}\hlstd{)}
+\hlkwd{names}\hlstd{(data_dummy_0.5)} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"train"}\hlstd{,} \hlstr{"test"}\hlstd{,} \hlstr{"ytrain"}\hlstd{,} \hlstr{"na_cutoff"}\hlstd{)}
+\hlkwd{save}\hlstd{(data_dummy_0.5,} \hlkwc{file}\hlstd{=}\hlstr{"data_dummy_0.5.rda"}\hlstd{)}
 \end{alltt}
 \end{kframe}
 \end{knitrout}
@@ -708,6 +764,54 @@ All calculations were carried out in the \texttt{R} programming language, with a
             \hlkwc{row.names} \hlstd{=} \hlnum{FALSE}\hlstd{)}
 \hlcom{# \}}
 \hlstd{\}}
+
+\hlcom{# Ridge Regression (Sample with 50% cutoff)}
+\hlcom{# load("data/data_dummy_0.5.rda")}
+\hlstd{train} \hlkwb{<-} \hlstd{data_dummy_0.5}\hlopt{$}\hlstd{train}
+\hlstd{test} \hlkwb{<-} \hlstd{data_dummy_0.5}\hlopt{$}\hlstd{test}
+\hlstd{ytrain} \hlkwb{<-} \hlstd{data_dummy_0.5}\hlopt{$}\hlstd{ytrain}
+\hlstd{train} \hlkwb{<-} \hlkwd{as.matrix}\hlstd{(train)}
+\hlkwd{class}\hlstd{(train)} \hlkwb{<-} \hlstr{"numeric"}
+\hlstd{test} \hlkwb{<-} \hlkwd{as.matrix}\hlstd{(test)}
+\hlkwd{class}\hlstd{(test)} \hlkwb{<-} \hlstr{"numeric"}
+\hlstd{ytrain} \hlkwb{<-} \hlkwd{as.matrix}\hlstd{(ytrain)}
+\hlstd{ytrain[ytrain}\hlopt{==}\hlstr{"yes"}\hlstd{]} \hlkwb{<-} \hlnum{1}
+\hlstd{ytrain[ytrain}\hlopt{==}\hlstr{"no"}\hlstd{]} \hlkwb{<-} \hlnum{0}
+\hlkwd{class}\hlstd{(ytrain)} \hlkwb{<-} \hlstr{"numeric"}
+\hlcom{# Convert train, test and ytrain to numeric matrices, to accomodate glmnet.}
+
+\hlkwd{library}\hlstd{(glmnet)}
+
+\hlcom{# Use parallel to speed up}
+\hlstd{nCores} \hlkwb{<-} \hlstd{parallel::}\hlkwd{detectCores}\hlstd{()}
+\hlstd{doParallel::}\hlkwd{registerDoParallel}\hlstd{(nCores)}
+
+\hlcom{# Keep track of the lambdas that give the smallest MSE}
+\hlstd{lambdas.min} \hlkwb{<-} \hlkwd{rep}\hlstd{(}\hlnum{0}\hlstd{,}\hlnum{14}\hlstd{)}
+\hlstd{result} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlkwd{rep}\hlstd{(}\hlnum{0}\hlstd{,}\hlkwd{nrow}\hlstd{(test)}\hlopt{*}\hlkwd{ncol}\hlstd{(ytrain)),} \hlkwc{ncol}\hlstd{=}\hlkwd{ncol}\hlstd{(ytrain))}
+
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlnum{1}\hlopt{:}\hlnum{14}\hlstd{)\{}
+  \hlkwd{print}\hlstd{(i)}
+  \hlstd{cv_mod_ridge} \hlkwb{<-} \hlkwd{cv.glmnet}\hlstd{(train, ytrain[,i],} \hlkwc{alpha} \hlstd{=} \hlnum{0}\hlstd{,} \hlkwc{parallel}\hlstd{=}\hlnum{TRUE}\hlstd{)}
+  \hlcom{#Use 10-fold cross validation on 100 default lambda values.}
+  \hlstd{lambdas.min[i]} \hlkwb{<-} \hlstd{cv_mod_ridge}\hlopt{$}\hlstd{lambda.min}
+  \hlstd{pred_ridge} \hlkwb{<-} \hlkwd{predict}\hlstd{(cv_mod_ridge,} \hlkwc{s} \hlstd{= cv_mod_ridge}\hlopt{$}\hlstd{lambda.min,} \hlkwc{newx} \hlstd{= test)}
+  \hlstd{result[,i]} \hlkwb{<-} \hlstd{pred_ridge}
+\hlstd{\}}
+
+\hlcom{# Visualize the lambdas}
+\hlkwd{plot}\hlstd{(}\hlkwc{x}\hlstd{=}\hlnum{1}\hlopt{:}\hlnum{14}\hlstd{,} \hlkwc{y}\hlstd{=lambdas.min,} \hlkwc{xlab}\hlstd{=}\hlstr{"Column# in Y"}\hlstd{,} \hlkwc{ylab}\hlstd{=}\hlstr{"Lambda.min"}\hlstd{,} \hlkwc{type}\hlstd{=}\hlstr{"h"}\hlstd{,}
+     \hlkwc{main}\hlstd{=}\hlstr{"Lambdas with Smallest MSE Using Ridge_CV"}\hlstd{)}
+
+\hlcom{# Deal with values outside of 0 and 1:}
+\hlstd{colmean} \hlkwb{=} \hlkwd{colMeans}\hlstd{(ytrain)}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlnum{1}\hlopt{:}\hlnum{14}\hlstd{)\{}
+  \hlstd{result[}\hlkwd{which}\hlstd{(result[,i]} \hlopt{<} \hlnum{0}\hlstd{),i]} \hlkwb{<-} \hlstd{colmean[i]}
+  \hlstd{result[}\hlkwd{which}\hlstd{(result[,i]} \hlopt{>} \hlnum{1}\hlstd{),i]} \hlkwb{<-} \hlstd{colmean[i]}
+\hlstd{\}}
+
+\hlcom{# Write Submission}
+\hlkwd{write_submission}\hlstd{(result,} \hlstr{"Ridge0.5"}\hlstd{)}
 
 \hlcom{# Benchmark models}
 \hlcom{# Random probability drawn from U(0, 1)}
