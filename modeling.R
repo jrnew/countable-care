@@ -154,13 +154,13 @@ test <- data$test
 }
 
 # Benchmark models
-# # Random probability drawn from U(0, 1)
-# probs <- matrix(runif(nrow(test)*(ncol(ytrain))), nrow(test), ncol(ytrain))
-# write_submission(probs, paste0("unifseed", seed))
-# # Constant probability of 0.5
-# probs <- matrix(0.5, nrow(test), ncol(ytrain))
-# write_submission(probs, "constant0.5")
-# # Constant probability of proportion for each service
-# ytrain_props <- sapply(ytrain, mean)
-# probs <- matrix(rep(ytrain_props, each = nrow(test)), nrow(test), ncol(ytrain))
-# write_submission(probs, "constantprop")
+# Random probability drawn from U(0, 1)
+probs <- matrix(runif(nrow(test)*(ncol(ytrain))), nrow(test), ncol(ytrain))
+write_submission(probs, paste0("unifseed", seed))
+# Constant probability of 0.5
+probs <- matrix(0.5, nrow(test), ncol(ytrain))
+write_submission(probs, "constant0.5")
+# Constant probability of proportion for each service
+ytrain_props <- sapply(ytrain, mean)
+probs <- matrix(rep(ytrain_props, each = nrow(test)), nrow(test), ncol(ytrain))
+write_submission(probs, "constantprop")

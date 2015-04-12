@@ -86,5 +86,642 @@
 \label{sec:introduction}
 The competition we have chosen to work on is DrivenData.org's Countable Care: Modeling Women's Health Care Decisions. The link to the competition can be found at: \href{http://www.drivendata.org/competitions/6/}{http://www.drivendata.org/competitions/6/}. DrivenData is effectively Kaggle for social issues, and this competition is a partnership with Planned Parenthood Federation of America.
 %==================================================
+\section{Data}
+\label{sec:data}
+
+\subsection{Data description}
+The data consists of responses by women in United States to the National Survey of Family Growth carried out by the United States Center for Disease Control and Prevention. Questions in the survey span topics such as demographics, marriage and reproductive health. There are a total of 14,644 observations in the training set and 3,661 observations in the test set, with each observation representing an individual’s responses for one release of the survey, and a total of 1378 features, including the survey round and 116 numeric (rescaled to the interval [0, 1]), 211 ordinal and 1050 categorical features that are responses to survey questions. The data has been obfuscated, so it is not given what each feature corresponds to in real terms.
+
+Data were given for 3 survey releases. Dates were not given for these survey releases (while the years in which this survey was conducted are easy to check, the competition prohibits any use of external information) and the chronological order of the survey releases is also unknown (i.e. the chronological order of the survey releases is not necessarily a, b, c). The number of women for which we have data in the training and test sets for each survey release is shown in Table~\ref{tab-num-women}.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{@{}|l|c|c|c|c|@{}}
+\hline
+& release\_a & release\_b & release\_c & Total \\ 
+\hline
+Training set & 6982 & 4477 & 3185 & 14644\\ 
+Test set & 1736 & 1141 & 784 & 3661\\ 
+\hline
+\end{tabular}
+\caption{\textbf{Number of women in training and test sets for each survey release.}} 
+\label{tab-num-women}
+\end{table}
+
+For each woman in the training set, a value of 1 or 0 was given for each of 14 health care services depending on whether she used that health care service in the 12 months preceding the survey, with 1 corresponding to yes. Again, this data is also obfuscated so it is unknown what any of the health care services are. The prediction objective is to predict the probability for each women in the test set of going to a healthcare provider for each of the 14 services. In other words, 3,661 (women) x 14 predicted probabilities are required.
+
+The distribution of the number of health care services used by each woman in the past year is shown in Fig~\ref{fig-num-svcs}. This is a long-tailed distribution with more than half the women using 3 or less services and very few using more than 5 services.
+
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[width = 0.4\textwidth]{fig/"number-of-svcs-used".pdf}
+\caption{\textbf{Distribution of number of health care services used by each woman.}}
+\label{fig-num-svcs}
+\end{center}
+\end{figure}
+
+The proportion of women using each health care service is visualized in Fig~\ref{fig-prop-svcs} across all survey releases and by survey release. The relative usage of the health care services is relatively consistent over time/across different survey releases, except for services d and n, for which the proportion is 0 in survey release b. Since the chronological order of the survey releases are not given, there are two possible hypotheses for this. The first is that survey release b is the earliest or latest and services d and n were not included as options in the survey question about health care services used, e.g. because these services were not available at that point in time. The second is that these services are simply so rarely used that the women selected to be in training set do not happen to have used them. In the first case, women in the test set in survey release b would then have a probability of 0 of having used services d and n, but not in the second case.
+
+\begin{figure}[htbp]
+\begin{center}
+\begin{tabular}{c}
+\includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service".pdf} \\
+\includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service-survey-release-a".pdf}
+\includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service-survey-release-b".pdf}
+\includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service-survey-release-c".pdf}
+\end{tabular}
+\caption{\textbf{Proportion of women who used each health care service in the 12 months before the survey across all survey releases (top) and in each survey release (bottom).}}
+\label{fig-prop-svcs}
+\end{center}
+\end{figure}
+
+\subsection{Data problems}
+The data is very sparse, with 82.6\% of the data missing in the train set. There are many features with a high proportion of missing values as shown in Fig~\ref{fig-missing}. This is because many survey questions depend on the response to previous survey questions and may be skipped. Based on the description on the competition website, this seems to be the only reason for missing values (no mention is made of questions that may be left blank for other reasons or any cases of invalid survey responses). Clearly, these data is not missing at random. Given these, case deletion was not a feasible option.
+
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[width = 0.4\textwidth]{fig/"prop-missing-in-columns".pdf}
+\caption{\textbf{Proportion of missing values in features.}}
+\label{fig-missing}
+\end{center}
+\end{figure}
+
+Secondly, the 14 health care services are not mutually exclusive; a woman can go to more than one service, so this is not a multiclass problem. Also, whether a women goes for different services may be dependent on each other. Fitting separate independent models for each health care service may result in poorer predicted probabilities than if the correlation structure between the different services are taken into account.
+%==================================================
+  \section{Methods}
+\label{sec:methods}
+
+\subsection{Data processing}
+\subsubsection{Feature engineering}
+3 features were engineered and added to the data set. These are:
+  \begin{itemize}
+\item Number of numeric features with missing values for each woman
+\item Number of ordinal features with missing values for each woman
+\item Number of categorical features with missing values for each woman
+\end{itemize}
+
+The distribution of each feature across all women is given in Fig~\ref{fig-feature-engin}. Given the high proportion of missing values in the data set, the number of missing values for each women could be predictive. Moreover, these features capture some of the data that is lost in the next feature pruning step.
+
+\begin{figure}[htbp]
+\begin{center}
+\includegraphics[width = 1\textwidth]{fig/"dist-missing-values-across-women".pdf}
+\caption{\textbf{Distributions of missing values for different feature types.}}
+\label{fig-feature-engin}
+\end{center}
+\end{figure}
+
+\subsubsection{Feature pruning}
+Given that there are 1378 features in the data set, it is unlikely that all of them would be strongly predictive of the dependent variables. In the first data processing step, features that would not be useful in modeling were dropped from both the training and test sets.
+
+First of all, features that contain only missing values or one unique value (i.e. constant value for all women) were dropped from the data. There were 14 and 20 of such features respectively.
+
+Secondly, features with a proportion of missing values exceeding a certain cut-off in the training set would be dropped, since missing value imputation is hardly meaningful for such features. If this cut-off was set to be 50\%, i.e. at least half of women in the training set answered a particular question, then 1159 out of 1378 features would be dropped. In comparison, with cut-offs of 80\%, 90\% and 95\%, 1038, 944 and 770 features would be dropped respectively. Different cut-offs were tested.
+
+\subsubsection{Missing value imputation}
+Missing values left were handled using different approaches for different feature types: numeric, ordinal or categorical. As there were a large number of features, features that were not purely numeric, and a lack of information on what each feature actually means, many of the missing value imputation methods, such as mean imputation or regression imputation could not be used. Instead, we did a very basic imputation as follows:
+  \begin{itemize}
+\item For numeric features, missing values were set to 0.
+\item For ordinal features, missing values were set to -1, as the lowest category for each ordinal feature is coded as either 0 or 1 in the training set.
+\item For categorical features, a new category ``missing'' was introduced and missing values were set to this category instead.
+\end{itemize}
+
+\subsubsection{Coding dummy variables}
+Certain algorithms (e.g. ridge regression) required that categorical features be explicitly coded into dummy variables. Firstly, values in test set were set to the most frequently-occurring category in the training set for those with categories in the test but not the training set and those with missing values in the test but not the training set. This is because it is not possible to do prediction for an observation that has a category that is not present in the training set. For categories that appeared in the training set but not in the test set, placeholder columns (columns with all 0's) were introduced in the test set to take the position of that category. This was necessary because the training set and test set need to have the same number of columns even after introducing dummy variables.
+
+\subsection{Models}
+We fitted a variety of models, including:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \begin{itemize}
+\item Benchmark: set the predicted probability for each service in the test set to be the proportion of women who used each service in the training set
+ \item Gradient boosting machine
+ \item Random forest
+ \item k-nearest neigbors
+ \item Ridge regression
+ \end{itemize}
+
+These models were fitted independently for each of the 14 health care services, ignoring any correlation among them.
+
+\subsection{Miscellaneous}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                As discussed in the Data section, it is possible that women in the test set in survey release b would have a probability of 0 of having used services d and n. To test our hypothesis, we produced a version of predictions with the predicted probabilities for these 2 services for women in survey release b set to 0. If our hypothesis is incorrect, our log loss score would be much worse than in the original predictions since the log loss penalizes wrong but confident predictions heavily. Otherwise, it is likely to improve our score.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \subsection{Computation}
+All calculations were carried out in the \texttt{R} programming language, with additional functions from the \texttt{caret} package. Annotated code is given in the Appendix in Section \ref{sec:appendix}.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                %==================================================
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \section{Results} 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \label{sec:results}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \subsection{Evaluation metric}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                The evaluation metric here is the logarithmic loss, defined by $-\frac{1}{n}\sum_{i=1}^{10} [y_i log(\hat{y_i}) + (1-y_i log(1-\hat{y_i}))]$, where $y_i$ is the binary outcome of 0 or 1 of whether the woman used the health care service and $\hat{y_i}$ is the predicted probability that $y_i$ is 1. The goal is to minimize the log loss, so the top solution on the leaderboard will be the one that has the minimum log loss score on the public test set, while the top solution in the competition will be the one that has the minimum log score on the private test set. The log loss penalizes predictions that are both confident and wrong very heavily.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \subsection{Prediction results}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                A summary of the performance of our models on the public test set is given in Table~\ref{tab-results}. The best solution on the leaderboard is bolded. The gradient boosting method and the random forest performed well as both algorithms are suited to dealing with a large number of features. k-nearest neighbors is not optimal for high dimensions, hence the poor performance. Ridge regression also performed poorly, likely also due to the high dimension of the data.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                The processed data with the missing value cut-off of 90\% gave the best performance, probably because it gives the right balance of not discarding too many features, of which some may be informative, and features that yield almost no information after having their (large proportion of) missing values imputed with our basic imputation method.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \begin{table}[ht]
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \centering
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \begin{tabular}{@{}|l|c|c|@{}}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \hline
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Data set & Model & Log loss\\ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \hline
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Original & Benchmark; proportion of women using each service in train set & 0.3847 \\ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Missing value cut-off of 50\% & Gradient boosting method & 0.2796 \\ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Missing value cut-off of 80\% & Gradient boosting method & 0.2812 \\
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \textbf{Missing value cut-off of 90\%} & \textbf{Gradient boosting method} & \textbf{0.2613} \\
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Missing value cut-off of 95\% & Gradient boosting method & 0.2622 \\
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Missing value cut-off of 50\% & Random forest & 0.3037 \\ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Missing value cut-off of 80\% & Random forest & 0.3088 \\
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Missing value cut-off of 50\% & k-nearest neighbors & 1.0622 \\ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Missing value cut-off of 80\% & k-nearest neighbors & 1.1002 \\ 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Missing value cut-off of 50\% & Ridge regression & 0.5044 \\
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Missing value cut-off of 80\% & Ridge regression & 0.5274 \\
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \hline
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \end{tabular}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \caption{\textbf{Summary of model performance on test set.} The best method is bolded.}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \label{tab-results}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \end{table}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \subsection{Miscellaneous}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                We tested our hypothesis of whether the predicted probabilities for services d and n for women in survey release b should be all 0. The original version of predicted probabilities gave a log loss score of 0.2613, while the version with the predicted probabilities for services d and n for women in survey release b set to 0 gave a score of 0.2619. The difference appears to be marginal, so under these circumstances, no conclusion can be reached. It is possible that predicted probabilities in the original version were already small to begin with, as seen in Fig~/ref{fig-svcsdn}, so setting them to 0 produced little effect.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \begin{figure}[htbp]
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \begin{center}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \includegraphics[width = 0.8\textwidth]{fig/"preds-svcsdn".pdf}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \caption{\textbf{Distributions of predicted probabilities for services d and n for survey release b.}}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \label{fig-svcsdn}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \end{center}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \end{figure}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                %==================================================
+%==================================================
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \section{Discussion} 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \label{sec:discussion}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \subsection{Summary}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                As of 12 April 2015, two days before the conclusion of the competition, our best model of the gradient boosting machine reached rank 30 out of 483 competitors on the leaderboard with a log loss score of 0.2613. The competition has been ongoing for more than a month and we entered late into it, so this performance is not unacceptable.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \subsection{Limitations and future work}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Our basic missing value imputation method in which we replaced missing values with a global value for each feature type was a compromise due to the large number of missing values and the obfuscation of the data set. Given the actual meaning of the features, we would likely be able to use more sophisticated missing value imputation methods that would improve our final predictions. The same can be said of the method used to replace categories found in the training but not in the test set for categorical variables; a better method would be to use the next most similar category found in the training set, but this could not be determined based on the obfuscated data.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Another significant feature about this data set was that it had not one, but 14 dependent variables that are not mutually exclusive. Moreover, these dependent variables were likely correlated with each other. Ignoring the correlation among these variables may have caused loss of prediction accuracy. The use of multivariate methods that take into account this correlation structure might be able to increase prediction accuracy. 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                Finally, since ridge regression is not well-suited for classification problems, it yielded predicted probabilities outside of the range of 0 to 1. Converting these values to 0 or 1 would dramatically increase the score since log loss was used as the evaluation metric. To avoid this problem, such values were replaced with the proportions of women who used that service in the training set. However, a finer way should be adopted to accommodate such values.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                %==================================================
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                %\section{References}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \clearpage
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                %==================================================
+\appendix
+\section*{Appendix}
+\label{sec:appendix}
+
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{#======================================================================}
+\hlcom{# Data exploration}
+\hlcom{#======================================================================}
+\hlstd{data_dir} \hlkwb{<-} \hlstr{"data"}
+\hlstd{fig_dir} \hlkwb{<-} \hlstr{"fig"}
+\hlkwd{dir.create}\hlstd{(fig_dir,} \hlkwc{showWarnings} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+\hlstd{prop_missing_cutoff} \hlkwb{<-} \hlnum{0.9}
+
+\hlcom{# Read in data}
+\hlstd{train_readin} \hlkwb{<-} \hlkwd{read.csv}\hlstd{(}\hlkwd{file.path}\hlstd{(data_dir,} \hlstr{"train_values.csv"}\hlstd{),}
+                         \hlkwc{stringsAsFactors} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{na.strings} \hlstd{=} \hlstr{""}\hlstd{)}
+\hlstd{ytrain} \hlkwb{<-} \hlkwd{read.csv}\hlstd{(}\hlkwd{file.path}\hlstd{(data_dir,} \hlstr{"train_labels.csv"}\hlstd{))}
+\hlstd{test_readin} \hlkwb{<-} \hlkwd{read.csv}\hlstd{(}\hlkwd{file.path}\hlstd{(data_dir,} \hlstr{"test_values.csv"}\hlstd{),}
+                        \hlkwc{stringsAsFactors} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{na.strings} \hlstd{=} \hlstr{""}\hlstd{)}
+
+\hlcom{# Column types}
+\hlstd{colnames_all} \hlkwb{<-} \hlkwd{names}\hlstd{(train_readin)}
+\hlstd{colnames_type} \hlkwb{<-} \hlkwd{sapply}\hlstd{(colnames_all,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{strsplit}\hlstd{(x,} \hlstr{"_"}\hlstd{)[[}\hlnum{1}\hlstd{]][}\hlnum{1}\hlstd{])}
+\hlkwd{table}\hlstd{(colnames_type[}\hlopt{-}\hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{)])}
+
+\hlcom{# Check proportion of missing values in features}
+\hlstd{prop_missing} \hlkwb{<-} \hlkwd{sapply}\hlstd{(train_readin,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{mean}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+\hlkwd{par}\hlstd{(}\hlkwc{mar} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{4.5}\hlstd{,} \hlnum{4.5}\hlstd{,} \hlnum{4.5}\hlstd{,} \hlnum{2}\hlstd{))}
+\hlkwd{pdf}\hlstd{(}\hlkwd{file.path}\hlstd{(fig_dir,} \hlstr{"prop-missing-in-columns.pdf"}\hlstd{),} \hlkwc{width} \hlstd{=} \hlnum{7}\hlstd{,} \hlkwc{height} \hlstd{=} \hlnum{5}\hlstd{)}
+\hlkwd{hist}\hlstd{(prop_missing,} \hlkwc{main} \hlstd{=} \hlstr{"Proportion of missing values\textbackslash{}nin features"}\hlstd{,}
+     \hlkwc{xlab} \hlstd{=} \hlstr{"Proportion"}\hlstd{,} \hlkwc{ylab} \hlstd{=} \hlstr{"Number of features"}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{)}
+\hlkwd{dev.off}\hlstd{()}
+
+\hlcom{# Check original number of features, not including id}
+\hlkwd{ncol}\hlstd{(train_readin[,} \hlopt{-}\hlnum{1}\hlstd{])} \hlcom{# 1378}
+
+\hlcom{# Check for features with only constant values}
+\hlstd{cols_constant} \hlkwb{<-} \hlkwd{sapply}\hlstd{(train_readin,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{length}\hlstd{(}\hlkwd{unique}\hlstd{(x))} \hlopt{==} \hlnum{1}\hlstd{)}
+\hlkwd{sum}\hlstd{(cols_constant)} \hlcom{# 20}
+
+\hlcom{# Feature engineering}
+\hlcom{# Column types}
+\hlstd{colnames_all} \hlkwb{<-} \hlkwd{names}\hlstd{(train_readin)}
+\hlstd{colnames_type} \hlkwb{<-} \hlkwd{sapply}\hlstd{(colnames_all,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{strsplit}\hlstd{(x,} \hlstr{"_"}\hlstd{)[[}\hlnum{1}\hlstd{]][}\hlnum{1}\hlstd{])}
+\hlkwd{table}\hlstd{(colnames_type[}\hlopt{-}\hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{)])}
+\hlstd{cols_numeric} \hlkwb{<-} \hlstd{colnames_type} \hlopt{==} \hlstr{"n"}
+\hlstd{cols_ordinal} \hlkwb{<-} \hlstd{colnames_type} \hlopt{==} \hlstr{"o"}
+\hlstd{cols_categorical} \hlkwb{<-} \hlstd{colnames_type} \hlopt{==} \hlstr{"c"}
+
+\hlcom{# Number of missing numeric/ordinal/categorical features}
+\hlstd{num_missing_numeric} \hlkwb{<-} \hlkwd{apply}\hlstd{(train_readin[, cols_numeric],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+\hlstd{num_missing_ordinal} \hlkwb{<-} \hlkwd{apply}\hlstd{(train_readin[, cols_ordinal],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+\hlstd{num_missing_categorical} \hlkwb{<-} \hlkwd{apply}\hlstd{(train_readin[, cols_categorical],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+\hlkwd{pdf}\hlstd{(}\hlkwd{file.path}\hlstd{(fig_dir,} \hlstr{"dist-missing-values-across-women.pdf"}\hlstd{),} \hlkwc{width} \hlstd{=} \hlnum{12}\hlopt{/}\hlnum{1.2}\hlstd{,} \hlnum{3.5}\hlopt{/}\hlnum{1.2}\hlstd{)}
+\hlkwd{par}\hlstd{(}\hlkwc{mar} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{4.5}\hlstd{,} \hlnum{4.5}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{),} \hlkwc{mfrow} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{3}\hlstd{))}
+\hlkwd{hist}\hlstd{(num_missing_numeric,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{breaks} \hlstd{=} \hlnum{50}\hlstd{,}
+     \hlkwc{main} \hlstd{=} \hlstr{""}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{,}
+     \hlkwc{xlab} \hlstd{=} \hlstr{"Number of missing values for numeric features"}\hlstd{)}
+\hlkwd{legend}\hlstd{(}\hlstr{"topleft"}\hlstd{,} \hlkwc{legend} \hlstd{=} \hlkwd{c}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Mean = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(num_missing_numeric),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{),}
+                                    \hlstr{"\textbackslash{}nMedian = "}\hlstd{,} \hlkwd{median}\hlstd{(num_missing_numeric),}
+                                    \hlstr{"\textbackslash{}nSD = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{sd}\hlstd{(num_missing_numeric),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{))),}
+       \hlkwc{bty} \hlstd{=} \hlstr{"n"}\hlstd{)}
+\hlkwd{hist}\hlstd{(num_missing_ordinal,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{breaks} \hlstd{=} \hlnum{50}\hlstd{,}
+     \hlkwc{main} \hlstd{=} \hlstr{""}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{,}
+     \hlkwc{xlab} \hlstd{=} \hlstr{"Number of missing values for ordinal features"}\hlstd{)}
+\hlkwd{legend}\hlstd{(}\hlstr{"topleft"}\hlstd{,} \hlkwc{legend} \hlstd{=} \hlkwd{c}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Mean = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(num_missing_ordinal),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{),}
+                                    \hlstr{"\textbackslash{}nMedian = "}\hlstd{,} \hlkwd{median}\hlstd{(num_missing_ordinal),}
+                                    \hlstr{"\textbackslash{}nSD = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{sd}\hlstd{(num_missing_ordinal),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{))),}
+       \hlkwc{bty} \hlstd{=} \hlstr{"n"}\hlstd{)}
+\hlkwd{hist}\hlstd{(num_missing_categorical,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{breaks} \hlstd{=} \hlnum{50}\hlstd{,}
+     \hlkwc{main} \hlstd{=} \hlstr{""}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{,}
+     \hlkwc{xlab} \hlstd{=} \hlstr{"Number of missing values for categorical features"}\hlstd{)}
+\hlkwd{legend}\hlstd{(}\hlstr{"topleft"}\hlstd{,} \hlkwc{legend} \hlstd{=} \hlkwd{c}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Mean = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(num_missing_categorical),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{),}
+                                    \hlstr{"\textbackslash{}nMedian = "}\hlstd{,} \hlkwd{median}\hlstd{(num_missing_categorical),}
+                                    \hlstr{"\textbackslash{}nSD = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{sd}\hlstd{(num_missing_categorical),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{))),}
+       \hlkwc{bty} \hlstd{=} \hlstr{"n"}\hlstd{)}
+\hlkwd{dev.off}\hlstd{()}
+
+\hlcom{# Check number of observations per survey release}
+\hlkwd{table}\hlstd{(train_readin}\hlopt{$}\hlstd{release)}
+
+\hlcom{# Check number of combinations of ytrain}
+\hlkwd{nrow}\hlstd{(ytrain)} \hlcom{# 14644}
+\hlkwd{nrow}\hlstd{(}\hlkwd{unique}\hlstd{(ytrain[,} \hlopt{-}\hlnum{1}\hlstd{]))} \hlcom{# 932}
+
+\hlcom{# Check number of services used across all women}
+\hlstd{numy} \hlkwb{<-} \hlkwd{apply}\hlstd{(ytrain[,} \hlopt{-}\hlnum{1}\hlstd{],} \hlnum{1}\hlstd{, sum)}
+\hlkwd{summary}\hlstd{(numy)}
+\hlkwd{pdf}\hlstd{(}\hlkwd{file.path}\hlstd{(fig_dir,} \hlstr{"number-of-svcs-used.pdf"}\hlstd{),} \hlkwc{width} \hlstd{=} \hlnum{7}\hlstd{,} \hlkwc{height} \hlstd{=} \hlnum{5}\hlstd{)}
+\hlkwd{par}\hlstd{(}\hlkwc{mar} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{4.5}\hlstd{,} \hlnum{4.5}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{))}
+\hlkwd{hist}\hlstd{(numy,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{main} \hlstd{=} \hlstr{""}\hlstd{,}
+     \hlkwc{xlab} \hlstd{=} \hlstr{"Number of services used by each woman"}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{)}
+\hlkwd{legend}\hlstd{(}\hlstr{"topright"}\hlstd{,} \hlkwc{legend} \hlstd{=} \hlkwd{c}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Mean = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(numy),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{),}
+                                     \hlstr{"\textbackslash{}nMedian = "}\hlstd{,} \hlkwd{median}\hlstd{(numy),}
+                                     \hlstr{"\textbackslash{}nSD = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{sd}\hlstd{(numy),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{))),}
+       \hlkwc{bty} \hlstd{=} \hlstr{"n"}\hlstd{)}
+\hlkwd{dev.off}\hlstd{()}
+
+\hlcom{# Check proportion of women using each service}
+\hlkwd{pdf}\hlstd{(}\hlkwd{file.path}\hlstd{(fig_dir,} \hlstr{"prop-women-using-each-service.pdf"}\hlstd{),}
+    \hlkwc{width} \hlstd{=} \hlnum{7}\hlstd{,} \hlkwc{height} \hlstd{=} \hlnum{5}\hlstd{)}
+\hlkwd{par}\hlstd{(}\hlkwc{mar} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{4.5}\hlstd{,} \hlnum{5.5}\hlstd{,} \hlnum{4.5}\hlstd{,} \hlnum{1}\hlstd{))}
+\hlkwd{barplot}\hlstd{(}\hlkwd{apply}\hlstd{(ytrain[,} \hlopt{-}\hlnum{1}\hlstd{],} \hlnum{2}\hlstd{, mean),} \hlkwc{ylim} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{0}\hlstd{,} \hlnum{1}\hlstd{),}
+        \hlkwc{names.arg} \hlstd{=} \hlkwd{gsub}\hlstd{(}\hlstr{"service_"}\hlstd{,} \hlstr{""}\hlstd{,} \hlkwd{colnames}\hlstd{(ytrain[,} \hlopt{-}\hlnum{1}\hlstd{])),}
+        \hlkwc{main} \hlstd{=} \hlstr{"All survey releases"}\hlstd{,} \hlkwc{xlab} \hlstd{=} \hlstr{"Health care service"}\hlstd{,}
+        \hlkwc{ylab} \hlstd{=} \hlstr{"Proportion of women who\textbackslash{}nused each service"}\hlstd{)}
+\hlkwd{dev.off}\hlstd{()}
+
+\hlstd{releases} \hlkwb{<-} \hlkwd{sort}\hlstd{(}\hlkwd{unique}\hlstd{(train_readin}\hlopt{$}\hlstd{release))}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlkwd{seq_along}\hlstd{(releases)) \{}
+  \hlkwd{pdf}\hlstd{(}\hlkwd{file.path}\hlstd{(fig_dir,}
+                \hlkwd{paste0}\hlstd{(}\hlstr{"prop-women-using-each-service-survey-release-"}\hlstd{, releases[i],} \hlstr{".pdf"}\hlstd{)),}
+      \hlkwc{width} \hlstd{=} \hlnum{7}\hlstd{,} \hlkwc{height} \hlstd{=} \hlnum{5}\hlstd{)}
+  \hlkwd{par}\hlstd{(}\hlkwc{mar} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{4.5}\hlstd{,} \hlnum{5.5}\hlstd{,} \hlnum{4.5}\hlstd{,} \hlnum{1}\hlstd{))}
+  \hlkwd{barplot}\hlstd{(}\hlkwd{apply}\hlstd{(ytrain[train_readin}\hlopt{$}\hlstd{release} \hlopt{==} \hlstd{releases[i],} \hlopt{-}\hlnum{1}\hlstd{],} \hlnum{2}\hlstd{, mean),} \hlkwc{ylim} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{0}\hlstd{,} \hlnum{1}\hlstd{),}
+          \hlkwc{names.arg} \hlstd{=} \hlkwd{gsub}\hlstd{(}\hlstr{"service_"}\hlstd{,} \hlstr{""}\hlstd{,} \hlkwd{colnames}\hlstd{(ytrain[,} \hlopt{-}\hlnum{1}\hlstd{])),}
+          \hlkwc{main} \hlstd{=} \hlkwd{paste0}\hlstd{(}\hlstr{"Survey release "}\hlstd{, releases[i]),} \hlkwc{xlab} \hlstd{=} \hlstr{"Health care service"}\hlstd{,}
+          \hlkwc{ylab} \hlstd{=} \hlstr{"Proportion of women who\textbackslash{}nused each service"}\hlstd{)}
+  \hlkwd{dev.off}\hlstd{()}
+\hlstd{\}}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{#======================================================================}
+\hlcom{# Data processing}
+\hlcom{#======================================================================}
+\hlcom{# rm(list = ls())}
+\hlcom{# gc()}
+\hlcom{# setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")}
+\hlcom{# data_dir <- "data"}
+\hlcom{# prop_missing_cutoff <- 0.9}
+
+\hlcom{# Read in data}
+\hlstd{train_readin} \hlkwb{<-} \hlkwd{read.csv}\hlstd{(}\hlkwd{file.path}\hlstd{(data_dir,} \hlstr{"train_values.csv"}\hlstd{),}
+                         \hlkwc{stringsAsFactors} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{na.strings} \hlstd{=} \hlstr{""}\hlstd{)}
+\hlstd{ytrain} \hlkwb{<-} \hlkwd{read.csv}\hlstd{(}\hlkwd{file.path}\hlstd{(data_dir,} \hlstr{"train_labels.csv"}\hlstd{))}
+\hlstd{test_readin} \hlkwb{<-} \hlkwd{read.csv}\hlstd{(}\hlkwd{file.path}\hlstd{(data_dir,} \hlstr{"test_values.csv"}\hlstd{),}
+                        \hlkwc{stringsAsFactors} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{na.strings} \hlstd{=} \hlstr{""}\hlstd{)}
+
+\hlcom{# Check for features with only constant values}
+\hlstd{cols_constant} \hlkwb{<-} \hlkwd{sapply}\hlstd{(train_readin,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{length}\hlstd{(}\hlkwd{unique}\hlstd{(x))} \hlopt{==} \hlnum{1}\hlstd{)}
+\hlkwd{sum}\hlstd{(cols_constant)} \hlcom{# 20}
+
+\hlcom{# Feature engineering}
+\hlcom{# Column types}
+\hlstd{colnames_all} \hlkwb{<-} \hlkwd{names}\hlstd{(train_readin)}
+\hlstd{colnames_type} \hlkwb{<-} \hlkwd{sapply}\hlstd{(colnames_all,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{strsplit}\hlstd{(x,} \hlstr{"_"}\hlstd{)[[}\hlnum{1}\hlstd{]][}\hlnum{1}\hlstd{])}
+\hlkwd{table}\hlstd{(colnames_type[}\hlopt{-}\hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{)])}
+\hlstd{cols_numeric} \hlkwb{<-} \hlstd{colnames_type} \hlopt{==} \hlstr{"n"}
+\hlstd{cols_ordinal} \hlkwb{<-} \hlstd{colnames_type} \hlopt{==} \hlstr{"o"}
+\hlstd{cols_categorical} \hlkwb{<-} \hlstd{colnames_type} \hlopt{==} \hlstr{"c"}
+
+\hlcom{# Number of missing numeric/ordinal/categorical features}
+\hlstd{num_missing_numeric} \hlkwb{<-} \hlkwd{apply}\hlstd{(train_readin[, cols_numeric],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+\hlstd{num_missing_ordinal} \hlkwb{<-} \hlkwd{apply}\hlstd{(train_readin[, cols_ordinal],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+\hlstd{num_missing_categorical} \hlkwb{<-} \hlkwd{apply}\hlstd{(train_readin[, cols_categorical],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+\hlstd{num_missing_numeric_test} \hlkwb{<-} \hlkwd{apply}\hlstd{(test_readin[, cols_numeric],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+\hlstd{num_missing_ordinal_test} \hlkwb{<-} \hlkwd{apply}\hlstd{(test_readin[, cols_ordinal],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+\hlstd{num_missing_categorical_test} \hlkwb{<-} \hlkwd{apply}\hlstd{(test_readin[, cols_categorical],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+
+\hlcom{# Check for features with proportion of missing values > prop_missing_cutoff}
+\hlstd{prop_missing} \hlkwb{<-} \hlkwd{sapply}\hlstd{(train_readin,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{mean}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
+\hlstd{cols_missing} \hlkwb{<-} \hlstd{prop_missing} \hlopt{>} \hlstd{prop_missing_cutoff}
+\hlkwd{sum}\hlstd{(cols_missing)}
+
+\hlcom{# Remaining number of features, not including id}
+\hlkwd{sum}\hlstd{(}\hlopt{!}\hlstd{cols_constant} \hlopt{& !}\hlstd{cols_missing)} \hlopt{-} \hlnum{1}
+
+\hlcom{# Remove above features and id}
+\hlstd{train} \hlkwb{<-} \hlstd{train_readin[,} \hlkwd{names}\hlstd{(train_readin)} \hlopt{!=} \hlstr{"id"} \hlopt{& !}\hlstd{cols_constant} \hlopt{& !}\hlstd{cols_missing]}
+\hlstd{test} \hlkwb{<-} \hlstd{test_readin[,} \hlkwd{names}\hlstd{(train_readin)} \hlopt{!=} \hlstr{"id"} \hlopt{& !}\hlstd{cols_constant} \hlopt{& !}\hlstd{cols_missing]}
+
+\hlcom{# Column types}
+\hlstd{colnames_all} \hlkwb{<-} \hlkwd{names}\hlstd{(train)}
+\hlstd{colnames_type} \hlkwb{<-} \hlkwd{sapply}\hlstd{(colnames_all,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{strsplit}\hlstd{(x,} \hlstr{"_"}\hlstd{)[[}\hlnum{1}\hlstd{]][}\hlnum{1}\hlstd{])}
+\hlkwd{table}\hlstd{(colnames_type[}\hlopt{-}\hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{)])}
+\hlstd{cols_numeric} \hlkwb{<-} \hlstd{colnames_type} \hlopt{==} \hlstr{"n"}
+\hlstd{cols_ordinal} \hlkwb{<-} \hlstd{colnames_type} \hlopt{==} \hlstr{"o"}
+\hlstd{cols_categorical} \hlkwb{<-} \hlstd{colnames_type} \hlopt{==} \hlstr{"c"}
+
+\hlcom{# Missing value imputation for remaining features}
+\hlcom{# Numeric features: Set as 0}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlnum{1}\hlopt{:}\hlkwd{sum}\hlstd{(cols_numeric)) \{}
+  \hlstd{train[, cols_numeric][, i]} \hlkwb{<-} \hlkwd{ifelse}\hlstd{(}\hlkwd{is.na}\hlstd{(train[, cols_numeric][, i]),}
+                                       \hlnum{0}\hlstd{, train[, cols_numeric][, i])}
+  \hlstd{test[, cols_numeric][, i]} \hlkwb{<-} \hlkwd{ifelse}\hlstd{(}\hlkwd{is.na}\hlstd{(test[, cols_numeric][, i]),}
+                                      \hlnum{0}\hlstd{, test[, cols_numeric][, i])}
+\hlstd{\}}
+\hlcom{# Ordinal features: Set as -1}
+\hlcom{# table(sapply(train[, cols_ordinal], min, na.rm = TRUE)) # min is 0 or 1}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlnum{1}\hlopt{:}\hlkwd{sum}\hlstd{(cols_ordinal)) \{}
+  \hlstd{train[, cols_ordinal][, i]} \hlkwb{<-} \hlkwd{as.integer}\hlstd{(}\hlkwd{ifelse}\hlstd{(}\hlkwd{is.na}\hlstd{(train[, cols_ordinal][, i]),}
+                                              \hlopt{-}\hlnum{1}\hlstd{, train[, cols_ordinal][, i]))}
+  \hlstd{test[, cols_ordinal][, i]} \hlkwb{<-} \hlkwd{as.integer}\hlstd{(}\hlkwd{ifelse}\hlstd{(}\hlkwd{is.na}\hlstd{(test[, cols_ordinal][, i]),}
+                                             \hlopt{-}\hlnum{1}\hlstd{, test[, cols_ordinal][, i]))}
+\hlstd{\}}
+
+\hlcom{# Categorical features}
+\hlcom{# Check for: i) features with categories in test but not train set.}
+\hlcom{# ii) features with missing values in test but not train set}
+\hlstd{cols_unknownlevels} \hlkwb{<-} \hlkwa{NULL}
+\hlstd{cols_nomissingintrain} \hlkwb{<-} \hlkwa{NULL}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlnum{1}\hlopt{:}\hlkwd{sum}\hlstd{(cols_categorical)) \{}
+  \hlkwa{if} \hlstd{(}\hlkwd{any}\hlstd{(}\hlkwd{is.na}\hlstd{(test[, cols_categorical][, i]))} \hlopt{&} \hlkwd{all}\hlstd{(}\hlopt{!}\hlkwd{is.na}\hlstd{(train[, cols_categorical][, i]))) \{}
+    \hlkwd{print}\hlstd{(i)}
+    \hlstd{cols_nomissingintrain} \hlkwb{<-} \hlkwd{c}\hlstd{(cols_nomissingintrain, i)}
+  \hlstd{\}}
+  \hlkwa{if} \hlstd{(}\hlkwd{any}\hlstd{(}\hlopt{!}\hlkwd{is.na}\hlstd{(test[, cols_categorical][, i])} \hlopt{&}
+            \hlopt{!}\hlstd{(test[, cols_categorical][, i]} \hlopt{%in%} \hlkwd{unique}\hlstd{(train[, cols_categorical][, i])))) \{}
+    \hlstd{cols_unknownlevels} \hlkwb{<-} \hlkwd{c}\hlstd{(cols_unknownlevels, i)}
+    \hlstd{levels_train} \hlkwb{<-} \hlkwd{unique}\hlstd{(train[, cols_categorical][, i])}
+    \hlstd{levels_train} \hlkwb{<-} \hlkwd{ifelse}\hlstd{(}\hlkwd{is.na}\hlstd{(levels_train),} \hlstr{"missing"}\hlstd{,} \hlkwd{as.character}\hlstd{(levels_train))}
+    \hlstd{levels_test} \hlkwb{<-} \hlkwd{unique}\hlstd{(test[, cols_categorical][, i])}
+    \hlstd{levels_test} \hlkwb{<-} \hlkwd{ifelse}\hlstd{(}\hlkwd{is.na}\hlstd{(levels_test),} \hlstr{"missing"}\hlstd{,} \hlkwd{as.character}\hlstd{(levels_test))}
+    \hlkwa{if} \hlstd{(}\hlopt{!}\hlstd{(}\hlstr{"missing"} \hlopt{%in%} \hlstd{levels_train)) \{}
+      \hlkwd{print}\hlstd{(i)}
+      \hlkwd{print}\hlstd{(levels_test[}\hlopt{!}\hlstd{(levels_test} \hlopt{%in%} \hlstd{levels_train)])}
+      \hlkwd{print}\hlstd{(}\hlstr{"---"}\hlstd{)}
+      \hlstd{cols_nomissingintrain} \hlkwb{<-} \hlkwd{c}\hlstd{(cols_nomissingintrain,}
+                                 \hlkwd{rep}\hlstd{(i,} \hlkwd{length}\hlstd{(levels_test[}\hlopt{!}\hlstd{(levels_test} \hlopt{%in%} \hlstd{levels_train)])))}
+    \hlstd{\}}
+  \hlstd{\}}
+\hlstd{\}}
+
+\hlcom{# Categorical features: Set as new category missing}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlnum{1}\hlopt{:}\hlkwd{sum}\hlstd{(cols_categorical)) \{}
+  \hlstd{train[, cols_categorical][, i]} \hlkwb{<-} \hlkwd{as.factor}\hlstd{(}\hlkwd{ifelse}\hlstd{(}\hlkwd{is.na}\hlstd{(train[, cols_categorical][, i]),}
+                                                  \hlstr{"missing"}\hlstd{, train[, cols_categorical][, i]))}
+  \hlstd{test[, cols_categorical][, i]} \hlkwb{<-} \hlkwd{as.factor}\hlstd{(}\hlkwd{ifelse}\hlstd{(}\hlkwd{is.na}\hlstd{(test[, cols_categorical][, i]),}
+                                                    \hlstr{"missing"}\hlstd{,}
+                                                    \hlkwd{ifelse}\hlstd{(}\hlopt{!}\hlstd{(test[, cols_categorical][, i]} \hlopt{%in%}
+                                                      \hlkwd{unique}\hlstd{(train[, cols_categorical][, i])),}
+                                                      \hlstr{"missing"}\hlstd{, test[, cols_categorical][, i])))}
+\hlstd{\}}
+
+\hlcom{# Set values in test set to most frequently-occurring category in train set for:}
+\hlcom{# i) features with categories in test but not train set.}
+\hlcom{# ii) features with missing values in test but not train set}
+\hlkwa{for} \hlstd{(c} \hlkwa{in} \hlkwd{seq_along}\hlstd{(cols_nomissingintrain)) \{}
+  \hlstd{i} \hlkwb{<-} \hlstd{cols_nomissingintrain[c]}
+  \hlstd{value_new} \hlkwb{<-} \hlkwd{names}\hlstd{(}\hlkwd{which.max}\hlstd{(}\hlkwd{table}\hlstd{(test[, cols_categorical][, i])))}
+  \hlstd{test[, cols_categorical][, i]} \hlkwb{<-} \hlkwd{as.factor}\hlstd{(}\hlkwd{ifelse}\hlstd{(}\hlkwd{as.character}\hlstd{(test[, cols_categorical][, i])} \hlopt{==}
+                                                      \hlstr{"missing"}\hlstd{,}
+                                                    \hlstd{value_new,}
+                                                    \hlkwd{as.character}\hlstd{(test[, cols_categorical][, i])))}
+\hlstd{\}}
+
+\hlcom{# For random forest, ensure that categorical features have same}
+\hlcom{# levels in train and test sets}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlnum{1}\hlopt{:}\hlkwd{sum}\hlstd{(cols_categorical)) \{}
+  \hlstd{test[, cols_categorical][, i]} \hlkwb{<-} \hlkwd{factor}\hlstd{(test[, cols_categorical][, i],}
+                                          \hlkwc{levels} \hlstd{=} \hlkwd{levels}\hlstd{(train[, cols_categorical][, i]))}
+
+\hlstd{\}}
+
+\hlcom{# Add engineered features to data}
+\hlstd{train}\hlopt{$}\hlstd{num_missing_numeric} \hlkwb{<-} \hlstd{num_missing_numeric}
+\hlstd{train}\hlopt{$}\hlstd{num_missing_ordinal} \hlkwb{<-} \hlstd{num_missing_ordinal}
+\hlstd{train}\hlopt{$}\hlstd{num_missing_categorical} \hlkwb{<-} \hlstd{num_missing_categorical}
+\hlstd{test}\hlopt{$}\hlstd{num_missing_numeric} \hlkwb{<-} \hlstd{num_missing_numeric_test}
+\hlstd{test}\hlopt{$}\hlstd{num_missing_ordinal} \hlkwb{<-} \hlstd{num_missing_ordinal_test}
+\hlstd{test}\hlopt{$}\hlstd{num_missing_categorical} \hlkwb{<-} \hlstd{num_missing_categorical_test}
+
+\hlcom{# Convert release variable to factor, else it throws error}
+\hlstd{train}\hlopt{$}\hlstd{release} \hlkwb{<-} \hlkwd{as.factor}\hlstd{(train}\hlopt{$}\hlstd{release)}
+\hlstd{test}\hlopt{$}\hlstd{release} \hlkwb{<-} \hlkwd{as.factor}\hlstd{(test}\hlopt{$}\hlstd{release)}
+
+\hlcom{# Convert prediction label to alphabetical factor, }
+\hlcom{# else it throws error in caret::predict}
+\hlkwa{for} \hlstd{(i} \hlkwa{in} \hlnum{1}\hlopt{:}\hlkwd{ncol}\hlstd{(ytrain))}
+  \hlstd{ytrain[, i]} \hlkwb{<-} \hlkwd{factor}\hlstd{(}\hlkwd{ifelse}\hlstd{(ytrain[, i]} \hlopt{==} \hlnum{1}\hlstd{,} \hlstr{"yes"}\hlstd{,} \hlstr{"no"}\hlstd{))}
+
+\hlcom{# Save processed data to file}
+\hlstd{data} \hlkwb{<-} \hlkwd{list}\hlstd{(}\hlkwc{train} \hlstd{= train,}
+             \hlkwc{ytrain} \hlstd{= ytrain[,} \hlopt{-}\hlnum{1}\hlstd{],} \hlcom{# Drop id column }
+             \hlkwc{test} \hlstd{= test,}
+             \hlkwc{prop_missing_cutoff} \hlstd{= prop_missing_cutoff)}
+\hlkwd{save}\hlstd{(data,} \hlkwc{file} \hlstd{=} \hlkwd{file.path}\hlstd{(data_dir,} \hlkwd{paste0}\hlstd{(}\hlstr{"data_cutoff"}\hlstd{, prop_missing_cutoff,} \hlstr{".rda"}\hlstd{)))}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{#======================================================================}
+\hlcom{# Modeling}
+\hlcom{#======================================================================}
+\hlkwd{rm}\hlstd{(}\hlkwc{list} \hlstd{=} \hlkwd{ls}\hlstd{())}
+\hlkwd{gc}\hlstd{()}
+\hlstd{run_on_server} \hlkwb{<-} \hlnum{TRUE} \hlcom{###}
+\hlkwa{if} \hlstd{(}\hlopt{!}\hlstd{run_on_server)}
+  \hlkwd{setwd}\hlstd{(}\hlstr{"~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care"}\hlstd{)}
+\hlstd{data_dir} \hlkwb{<-} \hlstr{"data"}
+\hlstd{fig_dir} \hlkwb{<-} \hlstr{"fig"}
+\hlstd{results_dir} \hlkwb{<-} \hlstr{"results"}
+\hlkwd{dir.create}\hlstd{(fig_dir,} \hlkwc{showWarnings} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+\hlkwd{dir.create}\hlstd{(results_dir,} \hlkwc{showWarnings} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+\hlkwd{dir.create}\hlstd{(}\hlstr{"submit"}\hlstd{,} \hlkwc{showWarnings} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+\hlstd{get_notifications} \hlkwb{<-} \hlkwd{ifelse}\hlstd{(run_on_server,} \hlnum{TRUE}\hlstd{,} \hlnum{FALSE}\hlstd{)}
+\hlkwa{if} \hlstd{(get_notifications) \{}
+  \hlkwd{library}\hlstd{(RPushbullet)}
+  \hlcom{# options(error = function() \{ # Be notified when there is an error}
+  \hlcom{#   pbPost("note", "Error!", geterrmessage(), recipients = c(1, 2))}
+  \hlcom{# \})}
+\hlstd{\}}
+
+\hlstd{write_submission} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{probs}\hlstd{,} \hlkwc{model_name}\hlstd{) \{}
+  \hlstd{file_path} \hlkwb{<-} \hlkwd{file.path}\hlstd{(}\hlstr{"submit"}\hlstd{,} \hlkwd{paste0}\hlstd{(model_name,} \hlstr{".csv"}\hlstd{))}
+  \hlstd{submit} \hlkwb{<-} \hlkwd{read.csv}\hlstd{(}\hlstr{"data/SubmissionFormat.csv"}\hlstd{)}
+  \hlstd{submit[,} \hlnum{2}\hlopt{:}\hlkwd{ncol}\hlstd{(submit)]} \hlkwb{<-} \hlstd{probs}
+  \hlkwa{if} \hlstd{(}\hlkwd{file.exists}\hlstd{(file_path))}
+    \hlkwd{stop}\hlstd{(}\hlkwd{paste0}\hlstd{(file_path,} \hlstr{" already exists!"}\hlstd{))}
+  \hlkwd{write.csv}\hlstd{(submit,} \hlkwd{file.path}\hlstd{(file_path),} \hlkwc{row.names} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+  \hlkwd{message}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Results written to "}\hlstd{, file_path))}
+\hlstd{\}}
+
+\hlstd{seed} \hlkwb{<-} \hlnum{12345}
+\hlkwd{set.seed}\hlstd{(seed)}
+\hlkwd{library}\hlstd{(caret)}
+\hlkwd{library}\hlstd{(e1071)}
+\hlcom{# List all models in caret}
+\hlcom{# names(getModelInfo())}
+
+\hlcom{# Load data}
+\hlstd{prop_missing_cutoff} \hlkwb{<-} \hlnum{0.9}
+\hlkwd{load}\hlstd{(}\hlkwc{file} \hlstd{=} \hlkwd{file.path}\hlstd{(data_dir,} \hlkwd{paste0}\hlstd{(}\hlstr{"data_cutoff"}\hlstd{, prop_missing_cutoff,} \hlstr{".rda"}\hlstd{)))}
+\hlstd{train} \hlkwb{<-} \hlstd{data}\hlopt{$}\hlstd{train}
+\hlstd{test} \hlkwb{<-} \hlstd{data}\hlopt{$}\hlstd{test}
+\hlstd{ytrain} \hlkwb{<-} \hlstd{data}\hlopt{$}\hlstd{ytrain}
+
+\hlcom{# Create data partitions of 80% and 20%}
+\hlstd{ntrain} \hlkwb{<-} \hlkwd{nrow}\hlstd{(train)}
+\hlstd{train_indices} \hlkwb{<-} \hlkwd{sample}\hlstd{(}\hlnum{1}\hlopt{:}\hlstd{ntrain)[}\hlnum{1}\hlopt{:}\hlkwd{floor}\hlstd{(ntrain}\hlopt{*}\hlnum{0.8}\hlstd{)]}
+\hlstd{train_val} \hlkwb{<-} \hlstd{train[}\hlopt{-}\hlstd{train_indices, ]}
+
+\hlcom{# Set up caret models}
+\hlstd{train_control} \hlkwb{<-} \hlkwd{trainControl}\hlstd{(}\hlkwc{method} \hlstd{=} \hlstr{"cv"}\hlstd{,} \hlkwc{number} \hlstd{=} \hlnum{10}\hlstd{,} \hlkwc{returnResamp} \hlstd{=} \hlstr{"none"}\hlstd{)}
+
+\hlstd{mod_types} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"gbm"}\hlstd{,} \hlstr{"rf"}\hlstd{)}
+\hlkwa{if} \hlstd{(}\hlnum{FALSE}\hlstd{) \{}
+\hlstd{mod} \hlkwb{<-} \hlkwd{list}\hlstd{()}
+\hlstd{probs} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlnum{NA}\hlstd{,} \hlkwd{nrow}\hlstd{(test),} \hlkwd{ncol}\hlstd{(ytrain))}
+\hlkwa{for} \hlstd{(mod_type} \hlkwa{in} \hlstd{mod_types) \{}
+  \hlkwa{for} \hlstd{(svc_index} \hlkwa{in} \hlnum{1}\hlopt{:}\hlkwd{ncol}\hlstd{(ytrain)) \{}
+    \hlcom{# Train all the models with train data}
+    \hlstd{mod[[svc_index]]} \hlkwb{<-} \hlkwd{train}\hlstd{(train[train_indices, ], ytrain[train_indices, svc_index],}
+                              \hlkwc{method} \hlstd{= mod_type,} \hlkwc{trControl} \hlstd{= train_control)}
+
+    \hlcom{# Predict on test data}
+    \hlstd{probs[, svc_index]} \hlkwb{<-} \hlkwd{predict}\hlstd{(}\hlkwc{object} \hlstd{= mod[[svc_index]],} \hlkwc{newdata} \hlstd{= test,}
+                                  \hlkwc{type} \hlstd{=} \hlstr{"prob"}\hlstd{)}\hlopt{$}\hlstd{yes}
+  \hlstd{\}}
+  \hlkwd{write_submission}\hlstd{(probs,} \hlkwd{paste0}\hlstd{(mod_type,} \hlstr{"_cutoff"}\hlstd{, prop_missing_cutoff))}
+  \hlkwd{save}\hlstd{(mod,} \hlkwc{file} \hlstd{=} \hlkwd{file.path}\hlstd{(results_dir,}
+                             \hlkwd{paste0}\hlstd{(}\hlstr{"mod_"}\hlstd{, mod_type,} \hlstr{"_cutoff"}\hlstd{, prop_missing_cutoff,} \hlstr{".rda"}\hlstd{)))}
+  \hlkwa{if} \hlstd{(get_notifications)}
+    \hlkwd{pbPost}\hlstd{(}\hlkwc{type} \hlstd{=} \hlstr{"note"}\hlstd{,}
+           \hlkwc{title} \hlstd{=} \hlstr{"stat222"}\hlstd{,}
+           \hlkwc{body} \hlstd{=} \hlkwd{paste0}\hlstd{(mod_type,} \hlstr{" done!"}\hlstd{),}
+           \hlkwc{recipients} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{))}
+\hlstd{\}}
+\hlstd{\}}
+
+\hlcom{# Ensemble the models}
+\hlstd{mod_ensemble_types} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"glm"}\hlstd{)}
+\hlstd{mod_ensemble} \hlkwb{<-} \hlkwd{list}\hlstd{()}
+\hlstd{probs_ensemble} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlnum{NA}\hlstd{,} \hlkwd{nrow}\hlstd{(test),} \hlkwd{ncol}\hlstd{(ytrain))}
+\hlkwa{for} \hlstd{(mod_ensemble_type} \hlkwa{in} \hlstd{mod_ensemble_types) \{}
+  \hlkwa{for} \hlstd{(svc_index} \hlkwa{in} \hlnum{1}\hlopt{:}\hlkwd{ncol}\hlstd{(ytrain)) \{}
+    \hlkwa{for} \hlstd{(mod_type} \hlkwa{in} \hlstd{mod_types) \{}
+      \hlkwd{load}\hlstd{(}\hlkwd{file.path}\hlstd{(results_dir,}
+                     \hlkwd{paste0}\hlstd{(}\hlstr{"mod_"}\hlstd{, mod_type,} \hlstr{"_cutoff"}\hlstd{, prop_missing_cutoff,} \hlstr{".rda"}\hlstd{)))}
+
+      \hlcom{# Get predictions for each model and add them back to themselves}
+      \hlstd{train_val[[}\hlkwd{paste0}\hlstd{(mod_type,} \hlstr{"_PROB"}\hlstd{)]]} \hlkwb{<-} \hlkwd{predict}\hlstd{(}\hlkwc{object} \hlstd{= mod[[svc_index]],}
+                                                       \hlkwc{newdata} \hlstd{= train_val,}
+                                                       \hlkwc{type} \hlstd{=} \hlstr{"prob"}\hlstd{)}\hlopt{$}\hlstd{yes}
+      \hlstd{test[[}\hlkwd{paste0}\hlstd{(mod_type,} \hlstr{"_PROB"}\hlstd{)]]} \hlkwb{<-} \hlkwd{predict}\hlstd{(}\hlkwc{object} \hlstd{= mod[[svc_index]],}
+                                                  \hlkwc{newdata} \hlstd{= test,}
+                                                  \hlkwc{type} \hlstd{=} \hlstr{"prob"}\hlstd{)}\hlopt{$}\hlstd{yes}
+    \hlstd{\}}
+    \hlcom{# Run an ensemble model to blend all the predicted probabilities}
+    \hlstd{mod_ensemble[[svc_index]]} \hlkwb{<-} \hlkwd{train}\hlstd{(train_val[,} \hlkwd{grepl}\hlstd{(}\hlstr{"_PROB"}\hlstd{,} \hlkwd{names}\hlstd{(train_val))],}
+                                       \hlstd{ytrain[}\hlopt{-}\hlstd{train_indices, svc_index],}
+                                       \hlkwc{method} \hlstd{= mod_ensemble_type,} \hlkwc{trControl} \hlstd{= train_control)}
+
+    \hlcom{# Predict on test data}
+    \hlstd{probs_ensemble[, svc_index]} \hlkwb{<-} \hlkwd{predict}\hlstd{(}\hlkwc{object} \hlstd{= mod_ensemble[[svc_index]],}
+                                           \hlkwc{newdata} \hlstd{= test,}
+                                           \hlkwc{type} \hlstd{=} \hlstr{"prob"}\hlstd{)}\hlopt{$}\hlstd{yes}
+  \hlstd{\}}
+  \hlkwd{write_submission}\hlstd{(probs_ensemble,} \hlkwd{paste0}\hlstd{(mod_ensemble_type,} \hlstr{"_cutoff"}\hlstd{, prop_missing_cutoff))}
+  \hlkwd{save}\hlstd{(mod_ensemble,} \hlkwc{file} \hlstd{=} \hlkwd{file.path}\hlstd{(results_dir,}
+                                      \hlkwd{paste0}\hlstd{(}\hlstr{"mod_ensemble_"}\hlstd{, mod_ensemble_type,} \hlstr{"_cutoff"}\hlstd{,}
+                                             \hlstd{prop_missing_cutoff,} \hlstr{".rda"}\hlstd{)))}
+  \hlkwa{if} \hlstd{(get_notifications)}
+    \hlkwd{pbPost}\hlstd{(}\hlkwc{type} \hlstd{=} \hlstr{"note"}\hlstd{,}
+           \hlkwc{title} \hlstd{=} \hlstr{"stat222"}\hlstd{,}
+           \hlkwc{body} \hlstd{=} \hlkwd{paste0}\hlstd{(mod_ensemble_type,} \hlstr{" done!"}\hlstd{),}
+           \hlkwc{recipients} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{))}
+\hlstd{\}}
+
+\hlcom{# Set predicted prob to 0 for services d and n in survey release b}
+\hlkwa{if} \hlstd{(}\hlnum{FALSE}\hlstd{) \{}
+\hlstd{prop_missing_cutoff} \hlkwb{<-} \hlnum{0.9} \hlcom{# does not matter which one is used here}
+\hlkwd{load}\hlstd{(}\hlkwc{file} \hlstd{=} \hlkwd{file.path}\hlstd{(data_dir,} \hlkwd{paste0}\hlstd{(}\hlstr{"data_cutoff"}\hlstd{, prop_missing_cutoff,} \hlstr{".rda"}\hlstd{)))}
+\hlstd{test} \hlkwb{<-} \hlstd{data}\hlopt{$}\hlstd{test}
+\hlcom{# submit_files <- list.files("submit")}
+\hlcom{# for (file in submit_files) \{}
+  \hlstd{file} \hlkwb{<-} \hlstr{"gbm_cutoff0.9.csv"}
+  \hlstd{preds} \hlkwb{<-} \hlkwd{read.csv}\hlstd{(}\hlkwd{file.path}\hlstd{(}\hlstr{"submit"}\hlstd{, file))}
+  \hlkwd{pdf}\hlstd{(}\hlkwd{file.path}\hlstd{(fig_dir,} \hlstr{"preds-svcsdn.pdf"}\hlstd{),} \hlkwc{width} \hlstd{=} \hlnum{10}\hlstd{,} \hlnum{4}\hlstd{)}
+  \hlkwd{par}\hlstd{(}\hlkwc{mar} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{4.5}\hlstd{,} \hlnum{4.5}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{),} \hlkwc{mfrow} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{))}
+  \hlstd{preds_svc_d} \hlkwb{<-} \hlstd{preds}\hlopt{$}\hlstd{service_d[test}\hlopt{$}\hlstd{release} \hlopt{==} \hlstr{"b"}\hlstd{]}
+  \hlkwd{hist}\hlstd{(preds_svc_d,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{breaks} \hlstd{=} \hlnum{50}\hlstd{,}
+       \hlkwc{main} \hlstd{=} \hlstr{""}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{,}
+       \hlkwc{xlab} \hlstd{=} \hlstr{"Predicted probability for service d"}\hlstd{)}
+  \hlkwd{legend}\hlstd{(}\hlstr{"topright"}\hlstd{,} \hlkwc{legend} \hlstd{=} \hlkwd{c}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Mean = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(preds_svc_d),} \hlkwc{digits} \hlstd{=} \hlnum{3}\hlstd{),}
+                                    \hlstr{"\textbackslash{}nMedian = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{median}\hlstd{(preds_svc_d),} \hlkwc{digits} \hlstd{=} \hlnum{3}\hlstd{),}
+                                    \hlstr{"\textbackslash{}nSD = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{sd}\hlstd{(preds_svc_d),} \hlkwc{digits} \hlstd{=} \hlnum{3}\hlstd{))),}
+       \hlkwc{bty} \hlstd{=} \hlstr{"n"}\hlstd{)}
+  \hlstd{preds_svc_n} \hlkwb{<-} \hlstd{preds}\hlopt{$}\hlstd{service_n[test}\hlopt{$}\hlstd{release} \hlopt{==} \hlstr{"b"}\hlstd{]}
+  \hlkwd{hist}\hlstd{(preds_svc_n,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{breaks} \hlstd{=} \hlnum{50}\hlstd{,}
+       \hlkwc{main} \hlstd{=} \hlstr{""}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{,}
+       \hlkwc{xlab} \hlstd{=} \hlstr{"Predicted probability for service n"}\hlstd{)}
+  \hlkwd{legend}\hlstd{(}\hlstr{"topright"}\hlstd{,} \hlkwc{legend} \hlstd{=} \hlkwd{c}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Mean = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(preds_svc_n),} \hlkwc{digits} \hlstd{=} \hlnum{3}\hlstd{),}
+                                      \hlstr{"\textbackslash{}nMedian = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{median}\hlstd{(preds_svc_n),} \hlkwc{digits} \hlstd{=} \hlnum{3}\hlstd{),}
+                                      \hlstr{"\textbackslash{}nSD = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{sd}\hlstd{(preds_svc_n),} \hlkwc{digits} \hlstd{=} \hlnum{3}\hlstd{))),}
+         \hlkwc{bty} \hlstd{=} \hlstr{"n"}\hlstd{)}
+  \hlkwd{dev.off}\hlstd{()}
+  \hlstd{preds}\hlopt{$}\hlstd{service_d[test}\hlopt{$}\hlstd{release} \hlopt{==} \hlstr{"b"}\hlstd{]} \hlkwb{<-} \hlnum{0}
+  \hlstd{preds}\hlopt{$}\hlstd{service_n[test}\hlopt{$}\hlstd{release} \hlopt{==} \hlstr{"b"}\hlstd{]} \hlkwb{<-} \hlnum{0}
+  \hlkwd{write.csv}\hlstd{(preds,} \hlkwd{file.path}\hlstd{(}\hlstr{"submit"}\hlstd{,} \hlkwd{gsub}\hlstd{(}\hlstr{"\textbackslash{}\textbackslash{}.csv"}\hlstd{,} \hlstr{"_releaseb_svcsdn0.csv"}\hlstd{, file)),}
+            \hlkwc{row.names} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+\hlcom{# \}}
+\hlstd{\}}
+
+\hlcom{# Benchmark models}
+\hlcom{# Random probability drawn from U(0, 1)}
+\hlstd{probs} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlkwd{runif}\hlstd{(}\hlkwd{nrow}\hlstd{(test)}\hlopt{*}\hlstd{(}\hlkwd{ncol}\hlstd{(ytrain))),} \hlkwd{nrow}\hlstd{(test),} \hlkwd{ncol}\hlstd{(ytrain))}
+\hlkwd{write_submission}\hlstd{(probs,} \hlkwd{paste0}\hlstd{(}\hlstr{"unifseed"}\hlstd{, seed))}
+\hlcom{# Constant probability of 0.5}
+\hlstd{probs} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlnum{0.5}\hlstd{,} \hlkwd{nrow}\hlstd{(test),} \hlkwd{ncol}\hlstd{(ytrain))}
+\hlkwd{write_submission}\hlstd{(probs,} \hlstr{"constant0.5"}\hlstd{)}
+\hlcom{# Constant probability of proportion for each service}
+\hlstd{ytrain_props} \hlkwb{<-} \hlkwd{sapply}\hlstd{(ytrain, mean)}
+\hlstd{probs} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlkwd{rep}\hlstd{(ytrain_props,} \hlkwc{each} \hlstd{=} \hlkwd{nrow}\hlstd{(test)),} \hlkwd{nrow}\hlstd{(test),} \hlkwd{ncol}\hlstd{(ytrain))}
+\hlkwd{write_submission}\hlstd{(probs,} \hlstr{"constantprop"}\hlstd{)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
 
 \end{document}
