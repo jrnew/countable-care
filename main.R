@@ -1,7 +1,7 @@
 ## @knitr main
 rm(list = ls())
 gc()
-run_on_server <- TRUE ###
+run_on_server <- FALSE ###
 if (!run_on_server)
   setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
 data_dir <- "data"
@@ -36,7 +36,7 @@ library(e1071)
 # names(getModelInfo())
 
 # Load data
-prop_missing_cutoff <- 0.5
+prop_missing_cutoff <- 0.9
 load(file = file.path(data_dir, paste0("data_cutoff", prop_missing_cutoff, ".rda")))
 train <- data$train
 test <- data$test
@@ -50,18 +50,12 @@ train_val <- train[-train_indices, ]
 # Set up caret models
 train_control <- trainControl(method = "cv", number = 10, returnResamp = "none")
 
-# mod_types <- c("gbm", "rf")
-mod_types <- c("rf")
+if (FALSE) {
+mod_types <- c("gbm", "rf")
 mod <- list()
 probs <- matrix(NA, nrow(test), ncol(ytrain))
 for (mod_type in mod_types) {
   for (svc_index in 1:ncol(ytrain)) {
-    
-    # Testing!!!
-    # mod_type <- "rf"
-    # train_indices <- 1:100
-    # svc_index <- 1
-    
     # Train all the models with train data
     mod[[svc_index]] <- train(train[train_indices, ], ytrain[train_indices, svc_index], 
                               method = mod_type, trControl = train_control)
@@ -69,17 +63,6 @@ for (mod_type in mod_types) {
     # Predict on test data
     probs[, svc_index] <- predict(object = mod[[svc_index]], newdata = test, 
                                   type = "prob")$yes
-    
-    # Get predictions for each model and add them back to themselves
-    # train_val[[paste0(mod_type, "_PROB"]] <- predict(mod[[svc_index]], train_val, type = "prob")
-    # test[[paste0(mod_type, "_PROB"]] <- predict(mod[[svc_index]], test, type = "prob")
-    
-    # Run an ensemble model to blend all the predicted probabilities
-    # mod_ensemble[[svc_index]] <- train(train_val, ytrain[-train_indices, svc_index], 
-    #                                    method = "lasso", trControl = train_control)
-    
-    # Predict on test data
-    # preds <- predict(mod_ensemble[[svc_index]], test, type = "prob")
   }
   write_submission(probs, paste0(mod_type, "_cutoff", prop_missing_cutoff))
   save(mod, file = file.path(results_dir, 
@@ -90,7 +73,62 @@ for (mod_type in mod_types) {
            body = paste0(mod_type, " done!"),
            recipients = c(1, 2))
 }
-#----------------------------------------------------------------------
+}
+
+# Ensemble the models
+mod_ensemble_types <- c("glm")
+mod_ensemble <- list()
+probs_ensemble <- matrix(NA, nrow(test), ncol(ytrain))
+for (mod_ensemble_type in mod_ensemble_types) {
+  for (svc_index in 1:ncol(ytrain)) {
+    for (mod_type in mod_types) {
+      load(file.path(results_dir, 
+                     paste0("mod_", mod_type, "_cutoff", prop_missing_cutoff, ".rda")))
+      
+      # Get predictions for each model and add them back to themselves
+      train_val[[paste0(mod_type, "_PROB"]] <- predict(object = mod[[svc_index]], 
+                                                       newdata = train_val, 
+                                                       type = "prob")$yes
+      test[[paste0(mod_type, "_PROB"]] <- predict(object = mod[[svc_index]], 
+                                                  newdata = test, 
+                                                  type = "prob")$yes
+    }
+    # Run an ensemble model to blend all the predicted probabilities
+    mod_ensemble[[svc_index]] <- train(train_val[, grepl("_PROB", names(train_val))], 
+                                       ytrain[-train_indices, svc_index], 
+                                       method = mod_ensemble_type, trControl = train_control)
+    
+    # Predict on test data
+    probs_ensemble[, svc_index] <- predict(object = mod_ensemble[[svc_index]], 
+                                           newdata = test, 
+                                           type = "prob")$yes
+    write_submission(probs_ensemble, paste0(mod_type_ensemble, "_cutoff", prop_missing_cutoff))
+    save(mod_ensemble, file = file.path(results_dir, 
+                                        paste0("mod_ensemble_", mod_type_ensemble, "_cutoff", 
+                                               prop_missing_cutoff, ".rda")))
+    if (get_notifications)
+      pbPost(type = "note", 
+             title = "stat222", 
+             body = paste0(mod_type_ensemble, " done!"),
+             recipients = c(1, 2))
+  }
+}
+
+# Set predicted prob to 0 for services d and n in survey release b
+if (FALSE) {
+prop_missing_cutoff <- 0.5 # does not matter which one is used here
+load(file = file.path(data_dir, paste0("data_cutoff", prop_missing_cutoff, ".rda")))
+test <- data$test
+submit_files <- list.files("submit")
+for (file in submit_files) {
+  preds <- read.csv(file.path("submit", file))
+  preds$service_d[test$release == "b"] <- 0
+  preds$service_n[test$release == "b"] <- 0
+  write.csv(preds, file.path("submit", gsub("\\.csv", "_releaseb_svcsdn0.csv", file)), 
+            row.names = FALSE)
+}
+}
+
 # # Random probability drawn from U(0, 1)
 # probs <- matrix(runif(nrow(test)*(ncol(ytrain))), nrow(test), ncol(ytrain))
 # write_submission(probs, paste0("unifseed", seed))
@@ -98,45 +136,6 @@ for (mod_type in mod_types) {
 # probs <- matrix(0.5, nrow(test), ncol(ytrain))
 # write_submission(probs, "constant0.5")
 # # Constant probability of proportion for each service
-# ytrain_props <- apply(ytrain, 2, mean)
+# ytrain_props <- sapply(ytrain, mean)
 # probs <- matrix(rep(ytrain_props, each = nrow(test)), nrow(test), ncol(ytrain))
 # write_submission(probs, "constantprop")
-#----------------------------------------------------------------------
-# # Random forest
-# library(randomForest)
-# probs <- matrix(NA, nrow(test), ncol(ytrain) - 1)
-# for (i in 1:ncol(ytrain)) {
-#   target <- ytrain[, i]
-#   model <- randomForest(target ~ ., data = train, 
-#                         ntree = 1000, importance = TRUE)
-#   save(model, file = file.path(results_dir, paste0("rf_ntrees1000", i)))
-#   probs[, i] <- predict(model, newdata = test, type = "prob")
-# }
-# write_submission(probs, paste0("rf_ntrees1000seed", seed))
-# if (get_notifications)
-#   pbPost(type = "note", 
-#          title = "stat222", 
-#          body = "RF done!",
-#          recipients = c(1, 2))
-# 
-# # GBM
-# library(gbm)
-# for (i in 1:ncol(ytrain)) {
-#   target <- ytrain[, i]
-#   model <- gbm(target ~ ., data = train, 
-#                distribution = "bernoulli", 
-#                n.trees = 1000, verbose = TRUE)
-#   save(model, file = file.path(results_dir, paste0("gbm_ntrees1000", i)))
-#   probs[, i] <- predict(object = model, newdata = test, type = "response", n.trees = 50)
-# }
-# write_submission(probs, paste0("gbm_ntrees1000seed", seed))
-# if (get_notifications)
-#   pbPost(type = "note", 
-#          title = "stat222", 
-#          body = "GBM done!",
-#          recipients = c(1, 2))
-
-# library(e1071)  
-# mod_svm <- svm(train[train_indices, ], ytrain[train_indices, svc_index])
-# svm_predictions<-predict(svm_fit,newdata=testing)  
-#----------------------------------------------------------------------

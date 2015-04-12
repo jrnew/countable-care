@@ -60,7 +60,7 @@
 \usepackage{amsmath}
 
 \title{STAT 222: Project 4\\
-       Countable Care}
+       Countable Care: Modeling Women's Health Care Decisions}
 \author{Yuan He, Lindsey Lee, Jin Rou New, Tianyi Zhu\\
         University of California, Berkeley}
 \date{\today}
@@ -78,39 +78,84 @@
 \begin{abstract}
   A Bayesian analysis of a randomized response survey was carried out to study the use of cognition-enhancing drugs in the UCB student population and gender-specific differences in this use. About three quarters of the student population do not use cognition-enhancing drugs, while about a tenth use them with a prescription and 14\% use them without a prescription. We concluded that there is no statistically significant difference in drug use between male and female students. \\ 
 	\hfill\break
-	\textbf{Keywords}: countable care, driven data competition, machine learning
+	\textbf{Keywords}: countable care, Driven Data competition, women's health, machine learning, gradient boosting machine, random forest
 \end{abstract}
 \clearpage
 %==================================================
 \section{Introduction}
 \label{sec:introduction}
 
-The competition we have chosen to work on is DrivenData.org’s Countable Care: Modeling Women's Health Care Decisions. The link to the competition can be found at: http://www.drivendata.org/competitions/6/. DrivenData is the equivalent of Kaggle for social causes.
+The competition we have chosen to work on is DrivenData.org's Countable Care: Modeling Women's Health Care Decisions. The link to the competition can be found at: \href{http://www.drivendata.org/competitions/6/}{http://www.drivendata.org/competitions/6/}. DrivenData.org is the equivalent of Kaggle for social causes.
 %==================================================
 \section{Data}
 \label{sec:data}
 
 \subsection{Data description}
-The data consists of responses by women in United States to the National Survey of Family Growth carried out by the United States Center for Disease Control and Prevention. Questions in the survey span topics such as demographics, marriage and reproductive health. There are a total of 14,644 observations, with each observation representing an individual’s responses for one release of the survey (an individual may have participated in multiple rounds of the survey), and a total of 1378 features, including the survey round and 116 numeric (standardized), 1050 categorical and 211 ordinal features that are responses to survey questions. The data has been obfuscated, so it is not given what each feature corresponds to in real terms.
+The data consists of responses by women in United States to the National Survey of Family Growth carried out by the United States Center for Disease Control and Prevention. Questions in the survey span topics such as demographics, marriage and reproductive health. There are a total of 14,644 observations in the training set and 3,661 observations in the test set, with each observation representing an individual’s responses for one release of the survey (an individual may have participated in multiple rounds of the survey), and a total of 1378 features, including the survey round and 116 numeric (standardized), 211 ordinal and 1050 categorical features that are responses to survey questions. The data has been obfuscated, so it is not given what each feature corresponds to in real terms.
 
-An overview of the survey data is given in Table~\ref{tab-data}.
+For each woman in the training set, a value of 1 or 0 was given for each of 14 health care services depending on whether she used that health care service in the last 12 months before the survey, with 1 corresponding to yes. Again, this data is also obfuscated so it is unknown what any of the health care services are. The distribution of the number of health care services used by each woman in the past year is shown in Fig~\ref{fig-num-svcs}. This is a long-tailed distribution with more than half the women using 3 or less services and very few using more than 5 services.
+
+\begin{figure}[htbp]
+    \begin{center}
+  	\includegraphics[width = 0.4\textwidth]{fig/"number-of-svcs-used".pdf}
+		\caption{\textbf{Distribution of number of health care services used by each woman.}}
+		\label{fig-num-svcs}
+  \end{center}
+\end{figure}
+
+The proportion of women using each health care service is given in Table~\ref{tab-prop-svc}. 
+
+
+
+\begin{figure}[htbp]
+    \begin{center}
+    \includegraphics[width = 0.4\textwidth]{fig/"prop-women-using-each-service".pdf}
+		\caption{\textbf{Proportion of women who used each health care service in the 12 months before the survey.}}
+		\label{fig-num-svcs}
+  \end{center}
+\end{figure}
+
+\begin{figure}[htbp]
+  \begin{center}
+  \begin{tabular}{|c|}
+		\includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service".pdf} \\
+		\includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service-survey-release-a".pdf}
+    \includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service-survey-release-b".pdf}
+    \includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service-survey-release-c".pdf}
+    \end{tabular}
+		\caption{\textbf{Proportion of women who used each health care service in the 12 months before the survey across all survey releases (top) and in each survey release (bottom).}}
+		\label{fig-prop-svcs}
+	\end{center}
+\end{figure}
 
 \begin{table}[ht]
   \centering
-  \begin{tabular}{@{}|l|c|c|c|c|@{}}
-  	\hline
-		& Male & Female & Missing & Total\\ 
-		\hline
-		All observations & 62 & 46 & 9 & 117 \\ 
-			Excluding fraternity observations & 41 & 45 & 8 & 94\\ 
-		\hline
-	\end{tabular}
-	\caption{\textbf{Summary of the survey observations}} 
-  \label{tab-data}
+  \begin{tabular}{@{}|c|c|@{}}
+  \hline
+  Health care service & Proportion of women who used it \\ 
+  \hline
+  service\_a & 0.47 \\ 
+  service\_b & 0.33 \\ 
+  service\_c & 0.26 \\ 
+  service\_d & 0.02 \\ 
+  service\_e & 0.05 \\ 
+  service\_f & 0.03 \\ 
+  service\_g & 0.05 \\ 
+  service\_h & 0.30 \\ 
+  service\_i & 0.02 \\ 
+  service\_j & 0.85 \\ 
+  service\_k & 0.78 \\ 
+  service\_l & 0.11 \\ 
+  service\_m & 0.09 \\ 
+  service\_n & 0.18 \\ 
+  \hline
+  \end{tabular}
+	\caption{\textbf{Proportion of women using each of the 14 health care services.}} 
+  \label{tab-prop-svc}
 \end{table}
 
 \subsection{Data problems}
-The data is very sparse, with 83\% of the data missing in the train set. There are many features with a high proportion of missing values as shown in Fig~\ref{fig-missing}. This is because are many missing values as some survey questions depend on the response to previous survey questions and may be skipped.
+The data is very sparse, with 82.6\% of the data missing in the train set. There are many features with a high proportion of missing values as shown in Fig~\ref{fig-missing}. This is because some survey questions depend on the response to previous survey questions and may be skipped.
 
 \begin{figure}[htbp]
     \begin{center}
@@ -123,17 +168,38 @@ The data is very sparse, with 83\% of the data missing in the train set. There a
 Secondly, columns of predictors/whether a women goes to a healthcare provider for different services may be dependent on each other. Fitting separate independent models for each health care service may result in a loss of information.
 
 \subsection{Data processing}
-\subsubsection{Imputing Missing Values}
-The dataset was filled with missing values. More specifically, there were more missing values than valid values within the independent variables. Figure 1 showed that most columns were filled with missing values. In fact, 82.6% of the cells in train data were registered as "NA". Since columns with mostly missing values would do no good to the prediction but make the data redundant and slow to run, throwing away columns was considered before fitting the model. From Figure 1, most features had 10,000+ missing values out of 14,662 observations and could thus be thrown away. 
+\subsection{Feature engineering}
+3 features were engineered and added to the data set. These are:
+\begin{itemize}
+  \item Number of numeric features with missing values for each woman
+  \item Number of ordinal features with missing values for each woman
+  \item Number of categorical features with missing values for each woman
+\end{itemize}
+
+The distribution of each feature across all women is given in Fig~\ref{fig-feature-engin}. Given the high proportion of missing values in the data set, the number of missing values for each women could be predictive. Moreover, these features capture some of the data that is lost in the next feature pruning step.
+
+\begin{figure}[htbp]
+    \begin{center}
+  	\includegraphics[width = 1\textwidth]{fig/"dist-missing-values-across-women".pdf}
+		\caption{\textbf{Distributions of missing values for different feature types.}}
+		\label{fig-feature-engin}
+  \end{center}
+\end{figure}
+
+\subsubsection{Feature pruning}
+Given that there are 1378 features in the data set, it is unlikely that all of them would be strongly predictive of the dependent variables. In the first data processing step, features that would not be useful in modelling were dropped from both the training and test sets.
 
 First of all, features that contain only missing values or one unique value (i.e. constant value for all women) were dropped from the data. There were 14 and 20 of such features respectively.
 
-Secondly, features with missing values exceeding a threshold would be dropped. If the threshold was set to be 50%, i.e. columns with proportion of NA's exceeding 50% would be considered invalid, then 1159 out of 1378 independent variables would be discarded. To compare, an 80% cutoff threw away 1038 out of 1378 columns. In practice we experimented with both cutoffs for each model and compared the accuracy resulted from loss of data.
+Secondly, features with a proportion of missing values exceeding a certain cut-off in the training set would be dropped, since missing value imputation is hardly meaningful for such features. If this cut-off was set to be 50\%, i.e. at least half of women in the training set answered a particular question, then 1159 out of 1378 features would be dropped. In comparison, with cut-offs of 80\%, 90\% and 95\%, 1038, 944 and 770 features would be dropped respectively. Different cut-offs were tested.
 
-Lastly, after removing invalid columns, NA values left were handled using different approaches for different data types (categorical, numeric or ordinal). Since more than one data type was presented in the independent variables, plus that the dataset was huge and obfuscated, it was hard to use predictions from regression to fill in the NA values. Instead, generic methods were used for each datatype:
-1. For numeric columns, NA's were converted to 0's;
-2. For ordinal columns, NA's were converted to -1;
-3. For categorical columns, new category called "missing" was introduced.
+\subsubsection{Missing value imputation}
+Missing values left were handled using different approaches for different feature types: numeric, ordinal or categorical. Since more than one data type was presented in the independent variables, plus that the dataset was huge and obfuscated, it was hard to use predictions from regression to fill in the NA values. Instead, generic methods were used for each datatype:
+\begin{itemize}
+  \item For numeric features, missing values were set to 0.
+  \item For ordinal features, missing values were set to -1, as the lowest category for each ordinal feature is coded as either 0 or 1 in the training set.
+  \item For categorical features, a new category ``missing'' was introduced and missing values were set to this category instead.
+\end{itemize}
 
 \subsubsection{Introducing Dummy Variables}
 In order to fit certain algorithms (e.g. Ridge, SVM, logit), columns with data type "categorical" were required to be made into dummy variables. Function model.matrix in R was used to introduce dummy columns with categorical columns treated as factors.
@@ -142,13 +208,6 @@ Levels of each categorical variable were compared for train data and test data. 
 %==================================================
 \section{Methods}
 \label{sec:methods}
-\subsection{Feature engineering}
-We engineered a number of features, including:
-\begin{itemize}
-  \item Number of numeric features with missing values for each woman
-  \item Number of ordinal features with missing values for each woman
-  \item Number of categorical features with missing values for each woman
-\end{itemize}
 
 \subsection{Models}
 We fitted a variety of models, including:
@@ -215,7 +274,7 @@ When regression models yielded prediction for probabilities, some of them might 
 \begin{alltt}
 \hlkwd{rm}\hlstd{(}\hlkwc{list} \hlstd{=} \hlkwd{ls}\hlstd{())}
 \hlkwd{gc}\hlstd{()}
-\hlstd{run_on_server} \hlkwb{<-} \hlnum{TRUE} \hlcom{###}
+\hlstd{run_on_server} \hlkwb{<-} \hlnum{FALSE} \hlcom{###}
 \hlkwa{if} \hlstd{(}\hlopt{!}\hlstd{run_on_server)}
   \hlkwd{setwd}\hlstd{(}\hlstr{"~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care"}\hlstd{)}
 \hlstd{data_dir} \hlkwb{<-} \hlstr{"data"}
@@ -304,6 +363,17 @@ When regression models yielded prediction for probabilities, some of them might 
            \hlkwc{body} \hlstd{=} \hlkwd{paste0}\hlstd{(mod_type,} \hlstr{" done!"}\hlstd{),}
            \hlkwc{recipients} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{))}
 \hlstd{\}}
+
+\hlcom{# # Random probability drawn from U(0, 1)}
+\hlcom{# probs <- matrix(runif(nrow(test)*(ncol(ytrain))), nrow(test), ncol(ytrain))}
+\hlcom{# write_submission(probs, paste0("unifseed", seed))}
+\hlcom{# # Constant probability of 0.5}
+\hlcom{# probs <- matrix(0.5, nrow(test), ncol(ytrain))}
+\hlcom{# write_submission(probs, "constant0.5")}
+\hlcom{# # Constant probability of proportion for each service}
+\hlcom{# ytrain_props <- sapply(ytrain, mean)}
+\hlcom{# probs <- matrix(rep(ytrain_props, each = nrow(test)), nrow(test), ncol(ytrain))}
+\hlcom{# write_submission(probs, "constantprop")}
 \end{alltt}
 \end{kframe}
 \end{knitrout}
@@ -343,10 +413,6 @@ When regression models yielded prediction for probabilities, some of them might 
      \hlkwc{xlab} \hlstd{=} \hlstr{"Proportion"}\hlstd{,} \hlkwc{ylab} \hlstd{=} \hlstr{"Number of features"}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{)}
 \hlkwd{dev.off}\hlstd{()}
 
-\hlcom{# Missing pattern plot}
-\hlcom{# library(mi)}
-\hlcom{# missing.pattern.plot(train)}
-
 \hlcom{# Data processing}
 \hlcom{# Check original number of features, not including id}
 \hlkwd{ncol}\hlstd{(train_readin[,} \hlopt{-}\hlnum{1}\hlstd{])} \hlcom{# 1378}
@@ -354,7 +420,6 @@ When regression models yielded prediction for probabilities, some of them might 
 \hlcom{# Check for features with only constant values}
 \hlstd{cols_constant} \hlkwb{<-} \hlkwd{sapply}\hlstd{(train_readin,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{length}\hlstd{(}\hlkwd{unique}\hlstd{(x))} \hlopt{==} \hlnum{1}\hlstd{)}
 \hlkwd{sum}\hlstd{(cols_constant)} \hlcom{# 20}
-\hlcom{# names(train_readin)[cols_constant]}
 
 \hlcom{# Feature engineering}
 \hlcom{# Column types}
@@ -369,15 +434,30 @@ When regression models yielded prediction for probabilities, some of them might 
 \hlstd{num_missing_numeric} \hlkwb{<-} \hlkwd{apply}\hlstd{(train_readin[, cols_numeric],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
 \hlstd{num_missing_ordinal} \hlkwb{<-} \hlkwd{apply}\hlstd{(train_readin[, cols_ordinal],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
 \hlstd{num_missing_categorical} \hlkwb{<-} \hlkwd{apply}\hlstd{(train_readin[, cols_categorical],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
-\hlkwd{hist}\hlstd{(num_missing_numeric,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,}
-     \hlkwc{main} \hlstd{=} \hlstr{"Distribution of missing\textbackslash{}nnumeric features across all women"}\hlstd{,}
-     \hlkwc{xlab} \hlstd{=} \hlstr{"Number of missing numeric features"}\hlstd{)}
-\hlkwd{hist}\hlstd{(num_missing_ordinal,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,}
-     \hlkwc{main} \hlstd{=} \hlstr{"Distribution of missing\textbackslash{}nordinal features across all women"}\hlstd{,}
-     \hlkwc{xlab} \hlstd{=} \hlstr{"Number of missing ordinal features"}\hlstd{)}
-\hlkwd{hist}\hlstd{(num_missing_categorical,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,}
-     \hlkwc{main} \hlstd{=} \hlstr{"Distribution of missing\textbackslash{}ncategorical features across all women"}\hlstd{,}
-     \hlkwc{xlab} \hlstd{=} \hlstr{"Number of missing categorical features"}\hlstd{)}
+\hlkwd{pdf}\hlstd{(}\hlkwd{file.path}\hlstd{(fig_dir,} \hlstr{"dist-missing-values-across-women.pdf"}\hlstd{),} \hlkwc{width} \hlstd{=} \hlnum{12}\hlopt{/}\hlnum{1.2}\hlstd{,} \hlnum{3.5}\hlopt{/}\hlnum{1.2}\hlstd{)}
+\hlkwd{par}\hlstd{(}\hlkwc{mar} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{4.5}\hlstd{,} \hlnum{4.5}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{),} \hlkwc{mfrow} \hlstd{=} \hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{3}\hlstd{))}
+\hlkwd{hist}\hlstd{(num_missing_numeric,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{breaks} \hlstd{=} \hlnum{50}\hlstd{,}
+     \hlkwc{main} \hlstd{=} \hlstr{""}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{,}
+     \hlkwc{xlab} \hlstd{=} \hlstr{"Number of missing values for numeric features"}\hlstd{)}
+\hlkwd{legend}\hlstd{(}\hlstr{"topleft"}\hlstd{,} \hlkwc{legend} \hlstd{=} \hlkwd{c}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Mean = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(num_missing_numeric),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{),}
+                                    \hlstr{"\textbackslash{}nMedian = "}\hlstd{,} \hlkwd{median}\hlstd{(num_missing_numeric),}
+                                    \hlstr{"\textbackslash{}nSD = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{sd}\hlstd{(num_missing_numeric),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{))),}
+       \hlkwc{bty} \hlstd{=} \hlstr{"n"}\hlstd{)}
+\hlkwd{hist}\hlstd{(num_missing_ordinal,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{breaks} \hlstd{=} \hlnum{50}\hlstd{,}
+     \hlkwc{main} \hlstd{=} \hlstr{""}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{,}
+     \hlkwc{xlab} \hlstd{=} \hlstr{"Number of missing values for ordinal features"}\hlstd{)}
+\hlkwd{legend}\hlstd{(}\hlstr{"topleft"}\hlstd{,} \hlkwc{legend} \hlstd{=} \hlkwd{c}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Mean = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(num_missing_ordinal),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{),}
+                                    \hlstr{"\textbackslash{}nMedian = "}\hlstd{,} \hlkwd{median}\hlstd{(num_missing_ordinal),}
+                                    \hlstr{"\textbackslash{}nSD = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{sd}\hlstd{(num_missing_ordinal),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{))),}
+       \hlkwc{bty} \hlstd{=} \hlstr{"n"}\hlstd{)}
+\hlkwd{hist}\hlstd{(num_missing_categorical,} \hlkwc{freq} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{breaks} \hlstd{=} \hlnum{50}\hlstd{,}
+     \hlkwc{main} \hlstd{=} \hlstr{""}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"lightgrey"}\hlstd{,}
+     \hlkwc{xlab} \hlstd{=} \hlstr{"Number of missing values for categorical features"}\hlstd{)}
+\hlkwd{legend}\hlstd{(}\hlstr{"topleft"}\hlstd{,} \hlkwc{legend} \hlstd{=} \hlkwd{c}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Mean = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{mean}\hlstd{(num_missing_categorical),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{),}
+                                    \hlstr{"\textbackslash{}nMedian = "}\hlstd{,} \hlkwd{median}\hlstd{(num_missing_categorical),}
+                                    \hlstr{"\textbackslash{}nSD = "}\hlstd{,} \hlkwd{round}\hlstd{(}\hlkwd{sd}\hlstd{(num_missing_categorical),} \hlkwc{digits} \hlstd{=} \hlnum{1}\hlstd{))),}
+       \hlkwc{bty} \hlstd{=} \hlstr{"n"}\hlstd{)}
+\hlkwd{dev.off}\hlstd{()}
 \hlstd{num_missing_numeric_test} \hlkwb{<-} \hlkwd{apply}\hlstd{(test_readin[, cols_numeric],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
 \hlstd{num_missing_ordinal_test} \hlkwb{<-} \hlkwd{apply}\hlstd{(test_readin[, cols_ordinal],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
 \hlstd{num_missing_categorical_test} \hlkwb{<-} \hlkwd{apply}\hlstd{(test_readin[, cols_categorical],} \hlnum{1}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{sum}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
@@ -385,10 +465,10 @@ When regression models yielded prediction for probabilities, some of them might 
 \hlcom{# Check for features with proportion of missing values > prop_missing_cutoff}
 \hlstd{prop_missing} \hlkwb{<-} \hlkwd{sapply}\hlstd{(train_readin,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwd{mean}\hlstd{(}\hlkwd{is.na}\hlstd{(x)))}
 \hlstd{cols_missing} \hlkwb{<-} \hlstd{prop_missing} \hlopt{>} \hlstd{prop_missing_cutoff}
-\hlkwd{sum}\hlstd{(cols_missing)} \hlcom{# 1159 for 0.5, 1038 for 0.8}
+\hlkwd{sum}\hlstd{(cols_missing)}
 
 \hlcom{# Remaining number of features, not including id}
-\hlkwd{sum}\hlstd{(}\hlopt{!}\hlstd{cols_constant} \hlopt{& !}\hlstd{cols_missing)} \hlopt{-} \hlnum{1} \hlcom{# 213 for 0.5, 334 for 0.8}
+\hlkwd{sum}\hlstd{(}\hlopt{!}\hlstd{cols_constant} \hlopt{& !}\hlstd{cols_missing)} \hlopt{-} \hlnum{1}
 
 \hlcom{# Remove above features and id}
 \hlstd{train} \hlkwb{<-} \hlstd{train_readin[,} \hlkwd{names}\hlstd{(train_readin)} \hlopt{!=} \hlstr{"id"} \hlopt{& !}\hlstd{cols_constant} \hlopt{& !}\hlstd{cols_missing]}

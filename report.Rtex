@@ -11,7 +11,7 @@
 \usepackage{amsmath}
 
 \title{STAT 222: Project 4\\
-       Countable Care}
+       Countable Care: Modeling Women's Health Care Decisions}
 \author{Yuan He, Lindsey Lee, Jin Rou New, Tianyi Zhu\\
         University of California, Berkeley}
 \date{\today}
@@ -30,39 +30,92 @@
 \begin{abstract}
   A Bayesian analysis of a randomized response survey was carried out to study the use of cognition-enhancing drugs in the UCB student population and gender-specific differences in this use. About three quarters of the student population do not use cognition-enhancing drugs, while about a tenth use them with a prescription and 14\% use them without a prescription. We concluded that there is no statistically significant difference in drug use between male and female students. \\ 
 	\hfill\break
-	\textbf{Keywords}: countable care, driven data competition, machine learning
+	\textbf{Keywords}: countable care, Driven Data competition, women's health, machine learning, gradient boosting machine, random forest
 \end{abstract}
 \clearpage
 %==================================================
 \section{Introduction}
 \label{sec:introduction}
 
-The competition we have chosen to work on is DrivenData.org’s Countable Care: Modeling Women's Health Care Decisions. The link to the competition can be found at: http://www.drivendata.org/competitions/6/. DrivenData is the equivalent of Kaggle for social causes.
+The competition we have chosen to work on is DrivenData.org's Countable Care: Modeling Women's Health Care Decisions. The link to the competition can be found at: \href{http://www.drivendata.org/competitions/6/}{http://www.drivendata.org/competitions/6/}. DrivenData.org is the equivalent of Kaggle for social causes.
 %==================================================
 \section{Data}
 \label{sec:data}
 
 \subsection{Data description}
-The data consists of responses by women in United States to the National Survey of Family Growth carried out by the United States Center for Disease Control and Prevention. Questions in the survey span topics such as demographics, marriage and reproductive health. There are a total of 14,644 observations, with each observation representing an individual’s responses for one release of the survey (an individual may have participated in multiple rounds of the survey), and a total of 1378 features, including the survey round and 116 numeric (standardized), 1050 categorical and 211 ordinal features that are responses to survey questions. The data has been obfuscated, so it is not given what each feature corresponds to in real terms.
+The data consists of responses by women in United States to the National Survey of Family Growth carried out by the United States Center for Disease Control and Prevention. Questions in the survey span topics such as demographics, marriage and reproductive health. There are a total of 14,644 observations in the training set and 3,661 observations in the test set, with each observation representing an individual’s responses for one release of the survey, and a total of 1378 features, including the survey round and 116 numeric (standardized), 211 ordinal and 1050 categorical features that are responses to survey questions. The data has been obfuscated, so it is not given what each feature corresponds to in real terms.
 
-An overview of the survey data is given in Table~\ref{tab-data}.
+Data were given for 3 survey releases. Dates were not given for these survey releases (while the years in which this survey was conducted are easy to check, the competition prohibits any use of external information) and the chronological order of the survey releases is also unknown (i.e. the chronological order of the survey releases is not necessarily a, b, c). The number of women for which we have data in the training and test sets for each survey release is shown in Table~\ref{tab-num-women}.
 
 \begin{table}[ht]
   \centering
-  \begin{tabular}{@{}|l|c|c|c|c|@{}}
-  	\hline
-		& Male & Female & Missing & Total\\ 
-		\hline
-		All observations & 62 & 46 & 9 & 117 \\ 
-			Excluding fraternity observations & 41 & 45 & 8 & 94\\ 
-		\hline
-	\end{tabular}
-	\caption{\textbf{Summary of the survey observations}} 
-  \label{tab-data}
+  \begin{tabular}{@{}|l|c|c|c|@{}}
+  \hline
+   & release\_a & release\_b & release\_c & Total \\ 
+  \hline
+  Training set & 6982 & 4477 & 3185 \\ 
+  Test set & 1736 & 1141 & 784 \\ 
+  \hline
+  \end{tabular}
+  \caption{\textbf{Number of women in training and test sets for each survey release.}} 
+  \label{tab-num-women}
+\end{table}
+
+For each woman in the training set, a value of 1 or 0 was given for each of 14 health care services depending on whether she used that health care service in the 12 months preceding the survey, with 1 corresponding to yes. Again, this data is also obfuscated so it is unknown what any of the health care services are. The prediction objective is to predict the probability for each women in the test set of going to a healthcare provider for each of the 14 services. In other words, 3,661 (women) x 14 predicted probabilities are required.
+
+The distribution of the number of health care services used by each woman in the past year is shown in Fig~\ref{fig-num-svcs}. This is a long-tailed distribution with more than half the women using 3 or less services and very few using more than 5 services.
+
+\begin{figure}[htbp]
+    \begin{center}
+  	\includegraphics[width = 0.4\textwidth]{fig/"number-of-svcs-used".pdf}
+		\caption{\textbf{Distribution of number of health care services used by each woman.}}
+		\label{fig-num-svcs}
+  \end{center}
+\end{figure}
+
+The proportion of women using each health care service is visualized in Fig~\ref{fig-prop-svcs} across all survey releases and by survey release. The relative usage of the health care services is relatively consistent over time/across different survey releases, except for services d and n, for which the proportion is 0 in survey release b. Since the chronological order of the survey releases are not given, there are two possible hypotheses for this. The first is that survey release b is the earliest or latest and services d and n were not included as options in the survey question about health care services used, e.g. because these services were not available at that point in time. The second is that these services are simply so rarely used that the women selected to be in training set do not happen to have used them. In the first case, women in the test set in survey release b would then have a probability of 0 of having used services d and n, but not in the second case.
+
+\begin{figure}[htbp]
+  \begin{center}
+  \begin{tabular}{c}
+		\includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service".pdf} \\
+		\includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service-survey-release-a".pdf}
+    \includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service-survey-release-b".pdf}
+    \includegraphics[width = 0.3\textwidth]{fig/"prop-women-using-each-service-survey-release-c".pdf}
+    \end{tabular}
+		\caption{\textbf{Proportion of women who used each health care service in the 12 months before the survey across all survey releases (top) and in each survey release (bottom).}}
+		\label{fig-prop-svcs}
+	\end{center}
+\end{figure}
+
+\begin{table}[ht]
+  \centering
+  \begin{tabular}{@{}|c|c|@{}}
+  \hline
+  Health care service & Proportion of women who used it \\ 
+  \hline
+  service\_a & 0.47 \\ 
+  service\_b & 0.33 \\ 
+  service\_c & 0.26 \\ 
+  service\_d & 0.02 \\ 
+  service\_e & 0.05 \\ 
+  service\_f & 0.03 \\ 
+  service\_g & 0.05 \\ 
+  service\_h & 0.30 \\ 
+  service\_i & 0.02 \\ 
+  service\_j & 0.85 \\ 
+  service\_k & 0.78 \\ 
+  service\_l & 0.11 \\ 
+  service\_m & 0.09 \\ 
+  service\_n & 0.18 \\ 
+  \hline
+  \end{tabular}
+	\caption{\textbf{Proportion of women using each of the 14 health care services.}} 
+  \label{tab-prop-svc}
 \end{table}
 
 \subsection{Data problems}
-The data is very sparse, with 83\% of the data missing in the train set. There are many features with a high proportion of missing values as shown in Fig~\ref{fig-missing}. This is because are many missing values as some survey questions depend on the response to previous survey questions and may be skipped.
+The data is very sparse, with 82.6\% of the data missing in the train set. There are many features with a high proportion of missing values as shown in Fig~\ref{fig-missing}. This is because some survey questions depend on the response to previous survey questions and may be skipped.
 
 \begin{figure}[htbp]
     \begin{center}
@@ -72,20 +125,41 @@ The data is very sparse, with 83\% of the data missing in the train set. There a
   \end{center}
 \end{figure}
 
-Secondly, columns of predictors/whether a women goes to a healthcare provider for different services may be dependent on each other. Fitting separate independent models for each health care service may result in a loss of information.
+Secondly, the 14 health care services are not mutually exclusive; a woman can go to more than one service, so this is not a multiclass problem. Also whether a women goes for different services may be dependent on each other. Fitting separate independent models for each health care service may result in poorer predicted probabilities than if the correlation structure between the different services are taken into account.
 
 \subsection{Data processing}
-\subsubsection{Imputing Missing Values}
-The dataset was filled with missing values. More specifically, there were more missing values than valid values within the independent variables. Figure 1 showed that most columns were filled with missing values. In fact, 82.6% of the cells in train data were registered as "NA". Since columns with mostly missing values would do no good to the prediction but make the data redundant and slow to run, throwing away columns was considered before fitting the model. From Figure 1, most features had 10,000+ missing values out of 14,662 observations and could thus be thrown away. 
+\subsection{Feature engineering}
+3 features were engineered and added to the data set. These are:
+\begin{itemize}
+  \item Number of numeric features with missing values for each woman
+  \item Number of ordinal features with missing values for each woman
+  \item Number of categorical features with missing values for each woman
+\end{itemize}
+
+The distribution of each feature across all women is given in Fig~\ref{fig-feature-engin}. Given the high proportion of missing values in the data set, the number of missing values for each women could be predictive. Moreover, these features capture some of the data that is lost in the next feature pruning step.
+
+\begin{figure}[htbp]
+    \begin{center}
+  	\includegraphics[width = 1\textwidth]{fig/"dist-missing-values-across-women".pdf}
+		\caption{\textbf{Distributions of missing values for different feature types.}}
+		\label{fig-feature-engin}
+  \end{center}
+\end{figure}
+
+\subsubsection{Feature pruning}
+Given that there are 1378 features in the data set, it is unlikely that all of them would be strongly predictive of the dependent variables. In the first data processing step, features that would not be useful in modelling were dropped from both the training and test sets.
 
 First of all, features that contain only missing values or one unique value (i.e. constant value for all women) were dropped from the data. There were 14 and 20 of such features respectively.
 
-Secondly, features with missing values exceeding a threshold would be dropped. If the threshold was set to be 50%, i.e. columns with proportion of NA's exceeding 50% would be considered invalid, then 1159 out of 1378 independent variables would be discarded. To compare, an 80% cutoff threw away 1038 out of 1378 columns. In practice we experimented with both cutoffs for each model and compared the accuracy resulted from loss of data.
+Secondly, features with a proportion of missing values exceeding a certain cut-off in the training set would be dropped, since missing value imputation is hardly meaningful for such features. If this cut-off was set to be 50\%, i.e. at least half of women in the training set answered a particular question, then 1159 out of 1378 features would be dropped. In comparison, with cut-offs of 80\%, 90\% and 95\%, 1038, 944 and 770 features would be dropped respectively. Different cut-offs were tested.
 
-Lastly, after removing invalid columns, NA values left were handled using different approaches for different data types (categorical, numeric or ordinal). Since more than one data type was presented in the independent variables, plus that the dataset was huge and obfuscated, it was hard to use predictions from regression to fill in the NA values. Instead, generic methods were used for each datatype:
-1. For numeric columns, NA's were converted to 0's;
-2. For ordinal columns, NA's were converted to -1;
-3. For categorical columns, new category called "missing" was introduced.
+\subsubsection{Missing value imputation}
+Missing values left were handled using different approaches for different feature types: numeric, ordinal or categorical. Since more than one data type was presented in the independent variables, plus that the dataset was huge and obfuscated, it was hard to use predictions from regression to fill in the NA values. Instead, generic methods were used for each datatype:
+\begin{itemize}
+  \item For numeric features, missing values were set to 0.
+  \item For ordinal features, missing values were set to -1, as the lowest category for each ordinal feature is coded as either 0 or 1 in the training set.
+  \item For categorical features, a new category ``missing'' was introduced and missing values were set to this category instead.
+\end{itemize}
 
 \subsubsection{Introducing Dummy Variables}
 In order to fit certain algorithms (e.g. Ridge, SVM, logit), columns with data type "categorical" were required to be made into dummy variables. Function model.matrix in R was used to introduce dummy columns with categorical columns treated as factors.
@@ -94,13 +168,6 @@ Levels of each categorical variable were compared for train data and test data. 
 %==================================================
 \section{Methods}
 \label{sec:methods}
-\subsection{Feature engineering}
-We engineered a number of features, including:
-\begin{itemize}
-  \item Number of numeric features with missing values for each woman
-  \item Number of ordinal features with missing values for each woman
-  \item Number of categorical features with missing values for each woman
-\end{itemize}
 
 \subsection{Models}
 We fitted a variety of models, including:
@@ -111,15 +178,16 @@ We fitted a variety of models, including:
   \item Ridge Regression
 \end{itemize}
 
+\subsection{Miscellaneous}
+As discussion in the Data section, it is possible that women in the test set in survey release b would have a probability of 0 of having used services d and n. To test our hypothesis, we produced a version of predictions with the predicted probabilities for these 2 services for women in survey release b set to 0. If our hypothesis is incorrect, our log loss score would be much worse than in the original predictions since the log loss penalizes wrong but confident predictions heavily. Otherwise, it is likely to improve our score.
+
 \subsection{Computation}
 All calculations were carried out in the \texttt{R} programming language, with additional functions from the \texttt{caret} package. Annotated code is given in the Appendix in Section \ref{sec:appendix}.
 %==================================================
 \section{Results} 
 \label{sec:results}
 
-\subsection{Prediction objective and evaluation metric}
-Binary outcomes denoting if a woman went to a healthcare provider for each of 14 services in the 12 months preceding the survey are given in the training set. The prediction objective is to predict the probability for each of the 3,661 women in the test set of going to a healthcare provider for each of the 14 services. In other words, 3,661 x 14 predicted probabilities are required. The 14 services are not mutually exclusive; a woman can go to more than one service in the 12 months.
-
+\subsection{Evaluation metric}
 The evaluation metric here is the logarithmic loss, defined by $-\frac{1}{n}$. (FILL IN!)
 
 \subsection{Prediction results}
@@ -144,14 +212,14 @@ A summary of the performance of our models on the test set is given in Table~\re
 \section{Discussion} 
 \label{sec:discussion}
 
-\subsection{Shortcomings and Future Developments}
-One significant feature about this dataset was that it had not one, but fourteen dependent variables (Y's). And the dependent variables were correlated with each other since a woman usually orders more than one health services. Conventional regression models assumed the dimension of Y to be nx1, so did the algorithms in R. Therefore, 14 columns of data were fitted separately using the models, assuming they were independent, which was not actually true. Ignoring the correlation between Y variables may cause loss of accuracy. Application of multivariate methods might be able to increase prediction accuracy.
+\subsection{Limitations and future work}
+One significant feature about this dataset was that it had not one, but 14 dependent variables. And the dependent variables were correlated with each other. Conventional regression models assumed the dimension of Y to be nx1, so did the algorithms in R. Therefore, 14 columns of data were fitted separately using the models, assuming they were independent, which was not actually true. Ignoring the correlation between Y variables may cause loss of accuracy. Application of multivariate methods might be able to increase prediction accuracy.
 
 Methodology of imputing missing values might also result in loss of accuracy. Throwing away columns was a straightforward, but not elegant way to reduce dimension and save computer time. Ideally only columns with all NA's and columns with a single constant should be removed. Moreover, replacing missing values with a global value (e.g. 0 or -1) was a compromise due to the large amount of NA's and obfuscation of dataset. Provided more valid data and smaller size, regressing the missing values on other columns should be a better solution.
 
 Procedure of creating dummy variables could be another source of problem. First of all, some levels in test data had to be dropped (these levels were replaced by "missing"). Secondly, introducing dummy variables dramatically increased dimension of data, without bringing in extra information. Lastly, the sole purpose of introducing placeholder columns (columns with only 0's) in test data was to make the number of columns match for test and train. Given that the model permitted, using factors instead of dummy variables should be more concise.
 
-When regression models yielded prediction for probabilities, some of them might fall out of the range of 0 to 1. Converting these over-bound values to 0 or 1 would dramatically increase the score since log-loss was used for evaluation of prediction. To avoid this problem, values over-bound were replaced with column means. However, a finer way should be adopted to accommodate those values.  
+When regression models yielded prediction for probabilities, some of them might fall out of the range of 0 to 1. Converting these over-bound values to 0 or 1 would dramatically increase the score since log loss was used for evaluation of prediction. To avoid this problem, values over-bound were replaced with column means. However, a finer way should be adopted to accommodate those values.  
 
 %==================================================
 \section{References}

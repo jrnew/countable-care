@@ -3,15 +3,16 @@
 \BOOKMARK [2][-]{subsection.2.1}{Data description}{section.2}% 3
 \BOOKMARK [2][-]{subsection.2.2}{Data problems}{section.2}% 4
 \BOOKMARK [2][-]{subsection.2.3}{Data processing}{section.2}% 5
-\BOOKMARK [3][-]{subsubsection.2.3.1}{Imputing Missing Values}{subsection.2.3}% 6
-\BOOKMARK [3][-]{subsubsection.2.3.2}{Introducing Dummy Variables}{subsection.2.3}% 7
-\BOOKMARK [1][-]{section.3}{Methods}{}% 8
-\BOOKMARK [2][-]{subsection.3.1}{Feature engineering}{section.3}% 9
-\BOOKMARK [2][-]{subsection.3.2}{Models}{section.3}% 10
-\BOOKMARK [2][-]{subsection.3.3}{Computation}{section.3}% 11
-\BOOKMARK [1][-]{section.4}{Results}{}% 12
-\BOOKMARK [2][-]{subsection.4.1}{Prediction objective and evaluation metric}{section.4}% 13
-\BOOKMARK [2][-]{subsection.4.2}{Prediction results}{section.4}% 14
-\BOOKMARK [1][-]{section.5}{Discussion}{}% 15
-\BOOKMARK [2][-]{subsection.5.1}{Shortcomings and Future Developments}{section.5}% 16
-\BOOKMARK [1][-]{section.6}{References}{}% 17
+\BOOKMARK [2][-]{subsection.2.4}{Feature engineering}{section.2}% 6
+\BOOKMARK [3][-]{subsubsection.2.4.1}{Feature pruning}{subsection.2.4}% 7
+\BOOKMARK [3][-]{subsubsection.2.4.2}{Missing value imputation}{subsection.2.4}% 8
+\BOOKMARK [3][-]{subsubsection.2.4.3}{Introducing Dummy Variables}{subsection.2.4}% 9
+\BOOKMARK [1][-]{section.3}{Methods}{}% 10
+\BOOKMARK [2][-]{subsection.3.1}{Models}{section.3}% 11
+\BOOKMARK [2][-]{subsection.3.2}{Computation}{section.3}% 12
+\BOOKMARK [1][-]{section.4}{Results}{}% 13
+\BOOKMARK [2][-]{subsection.4.1}{Prediction objective and evaluation metric}{section.4}% 14
+\BOOKMARK [2][-]{subsection.4.2}{Prediction results}{section.4}% 15
+\BOOKMARK [1][-]{section.5}{Discussion}{}% 16
+\BOOKMARK [2][-]{subsection.5.1}{Shortcomings and Future Developments}{section.5}% 17
+\BOOKMARK [1][-]{section.6}{References}{}% 18
