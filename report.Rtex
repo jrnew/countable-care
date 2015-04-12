@@ -28,7 +28,7 @@
 \maketitle
 
 \begin{abstract}
-  A Bayesian analysis of a randomized response survey was carried out to study the use of cognition-enhancing drugs in the UCB student population and gender-specific differences in this use. About three quarters of the student population do not use cognition-enhancing drugs, while about a tenth use them with a prescription and 14\% use them without a prescription. We concluded that there is no statistically significant difference in drug use between male and female students. \\ 
+  In DrivenData.org's Countable Care: Modeling Women's Health Care Decisions competition, the challenge is to predict probabilities that female survey respondents used 14 different health care services in the 12 months preceding the survey based on survey data from a nationally representative sample of women in the United States. Our best solution using a basic missing value imputation method and a gradient boosting machine gave a log loss score of 0.2613, putting us at rank 30 on the leaderboard out of 483 competitors on April 12, 2015, two days before the end of the competition. This report details our entire process including data exploration, data processing and modeling with a variety of methods. \\ 
 	\hfill\break
 	\textbf{Keywords}: countable care, Driven Data competition, women's health, machine learning, gradient boosting machine, random forest
 \end{abstract}
@@ -36,14 +36,13 @@
 %==================================================
 \section{Introduction}
 \label{sec:introduction}
-
-The competition we have chosen to work on is DrivenData.org's Countable Care: Modeling Women's Health Care Decisions. The link to the competition can be found at: \href{http://www.drivendata.org/competitions/6/}{http://www.drivendata.org/competitions/6/}. DrivenData.org is the equivalent of Kaggle for social causes.
+The competition we have chosen to work on is DrivenData.org's Countable Care: Modeling Women's Health Care Decisions. The link to the competition can be found at: \href{http://www.drivendata.org/competitions/6/}{http://www.drivendata.org/competitions/6/}. DrivenData is effectively Kaggle for social issues, and this competition is a partnership with Planned Parenthood Federation of America.
 %==================================================
 \section{Data}
 \label{sec:data}
 
 \subsection{Data description}
-The data consists of responses by women in United States to the National Survey of Family Growth carried out by the United States Center for Disease Control and Prevention. Questions in the survey span topics such as demographics, marriage and reproductive health. There are a total of 14,644 observations in the training set and 3,661 observations in the test set, with each observation representing an individual’s responses for one release of the survey, and a total of 1378 features, including the survey round and 116 numeric (standardized), 211 ordinal and 1050 categorical features that are responses to survey questions. The data has been obfuscated, so it is not given what each feature corresponds to in real terms.
+The data consists of responses by women in United States to the National Survey of Family Growth carried out by the United States Center for Disease Control and Prevention. Questions in the survey span topics such as demographics, marriage and reproductive health. There are a total of 14,644 observations in the training set and 3,661 observations in the test set, with each observation representing an individual’s responses for one release of the survey, and a total of 1378 features, including the survey round and 116 numeric (rescaled to the interval [0, 1]), 211 ordinal and 1050 categorical features that are responses to survey questions. The data has been obfuscated, so it is not given what each feature corresponds to in real terms.
 
 Data were given for 3 survey releases. Dates were not given for these survey releases (while the years in which this survey was conducted are easy to check, the competition prohibits any use of external information) and the chronological order of the survey releases is also unknown (i.e. the chronological order of the survey releases is not necessarily a, b, c). The number of women for which we have data in the training and test sets for each survey release is shown in Table~\ref{tab-num-women}.
 
@@ -67,8 +66,8 @@ The distribution of the number of health care services used by each woman in the
 
 \begin{figure}[htbp]
     \begin{center}
-  	\includegraphics[width = 0.4\textwidth]{fig/"number-of-svcs-used".pdf}
-		\caption{\textbf{Distribution of number of health care services used by each woman.}}
+    \includegraphics[width = 0.4\textwidth]{fig/"number-of-svcs-used".pdf}
+  	\caption{\textbf{Distribution of number of health care services used by each woman.}}
 		\label{fig-num-svcs}
   \end{center}
 \end{figure}
@@ -88,47 +87,24 @@ The proportion of women using each health care service is visualized in Fig~\ref
 	\end{center}
 \end{figure}
 
-\begin{table}[ht]
-  \centering
-  \begin{tabular}{@{}|c|c|@{}}
-  \hline
-  Health care service & Proportion of women who used it \\ 
-  \hline
-  service\_a & 0.47 \\ 
-  service\_b & 0.33 \\ 
-  service\_c & 0.26 \\ 
-  service\_d & 0.02 \\ 
-  service\_e & 0.05 \\ 
-  service\_f & 0.03 \\ 
-  service\_g & 0.05 \\ 
-  service\_h & 0.30 \\ 
-  service\_i & 0.02 \\ 
-  service\_j & 0.85 \\ 
-  service\_k & 0.78 \\ 
-  service\_l & 0.11 \\ 
-  service\_m & 0.09 \\ 
-  service\_n & 0.18 \\ 
-  \hline
-  \end{tabular}
-	\caption{\textbf{Proportion of women using each of the 14 health care services.}} 
-  \label{tab-prop-svc}
-\end{table}
-
 \subsection{Data problems}
-The data is very sparse, with 82.6\% of the data missing in the train set. There are many features with a high proportion of missing values as shown in Fig~\ref{fig-missing}. This is because some survey questions depend on the response to previous survey questions and may be skipped.
+The data is very sparse, with 82.6\% of the data missing in the train set. There are many features with a high proportion of missing values as shown in Fig~\ref{fig-missing}. This is because many survey questions depend on the response to previous survey questions and may be skipped. Based on the description on the competition website, this seems to be the only reason for missing values (no mention is made of questions that may be left blank for other reasons or any cases of invalid survey responses). Clearly, these data is not missing at random. Given these, case deletion was not a feasible option.
 
 \begin{figure}[htbp]
     \begin{center}
-		\includegraphics[width = 0.4\textwidth]{fig/"prop-missing-in-columns".pdf}
+  	\includegraphics[width = 0.4\textwidth]{fig/"prop-missing-in-columns".pdf}
 		\caption{\textbf{Proportion of missing values in features.}}
 		\label{fig-missing}
   \end{center}
 \end{figure}
 
-Secondly, the 14 health care services are not mutually exclusive; a woman can go to more than one service, so this is not a multiclass problem. Also whether a women goes for different services may be dependent on each other. Fitting separate independent models for each health care service may result in poorer predicted probabilities than if the correlation structure between the different services are taken into account.
+Secondly, the 14 health care services are not mutually exclusive; a woman can go to more than one service, so this is not a multiclass problem. Also, whether a women goes for different services may be dependent on each other. Fitting separate independent models for each health care service may result in poorer predicted probabilities than if the correlation structure between the different services are taken into account.
+%==================================================
+\section{Methods}
+\label{sec:methods}
 
 \subsection{Data processing}
-\subsection{Feature engineering}
+\subsubsection{Feature engineering}
 3 features were engineered and added to the data set. These are:
 \begin{itemize}
   \item Number of numeric features with missing values for each woman
@@ -140,46 +116,44 @@ The distribution of each feature across all women is given in Fig~\ref{fig-featu
 
 \begin{figure}[htbp]
     \begin{center}
-  	\includegraphics[width = 1\textwidth]{fig/"dist-missing-values-across-women".pdf}
+    \includegraphics[width = 1\textwidth]{fig/"dist-missing-values-across-women".pdf}
 		\caption{\textbf{Distributions of missing values for different feature types.}}
 		\label{fig-feature-engin}
   \end{center}
 \end{figure}
 
 \subsubsection{Feature pruning}
-Given that there are 1378 features in the data set, it is unlikely that all of them would be strongly predictive of the dependent variables. In the first data processing step, features that would not be useful in modelling were dropped from both the training and test sets.
+Given that there are 1378 features in the data set, it is unlikely that all of them would be strongly predictive of the dependent variables. In the first data processing step, features that would not be useful in modeling were dropped from both the training and test sets.
 
 First of all, features that contain only missing values or one unique value (i.e. constant value for all women) were dropped from the data. There were 14 and 20 of such features respectively.
 
 Secondly, features with a proportion of missing values exceeding a certain cut-off in the training set would be dropped, since missing value imputation is hardly meaningful for such features. If this cut-off was set to be 50\%, i.e. at least half of women in the training set answered a particular question, then 1159 out of 1378 features would be dropped. In comparison, with cut-offs of 80\%, 90\% and 95\%, 1038, 944 and 770 features would be dropped respectively. Different cut-offs were tested.
 
 \subsubsection{Missing value imputation}
-Missing values left were handled using different approaches for different feature types: numeric, ordinal or categorical. Since more than one data type was presented in the independent variables, plus that the dataset was huge and obfuscated, it was hard to use predictions from regression to fill in the NA values. Instead, generic methods were used for each datatype:
+Missing values left were handled using different approaches for different feature types: numeric, ordinal or categorical. As there were a large number of features, features that were not purely numeric, and a lack of information on what each feature actually means, many of the missing value imputation methods, such as mean imputation or regression imputation could not be used. Instead, we did a very basic imputation as follows:
 \begin{itemize}
   \item For numeric features, missing values were set to 0.
   \item For ordinal features, missing values were set to -1, as the lowest category for each ordinal feature is coded as either 0 or 1 in the training set.
   \item For categorical features, a new category ``missing'' was introduced and missing values were set to this category instead.
 \end{itemize}
 
-\subsubsection{Introducing Dummy Variables}
-In order to fit certain algorithms (e.g. Ridge, SVM, logit), columns with data type "categorical" were required to be made into dummy variables. Function model.matrix in R was used to introduce dummy columns with categorical columns treated as factors.
-Levels of each categorical variable were compared for train data and test data. Additional levels in test data that did not appear in train data were removed to make sure the models were trained properly. For levels that appeared in train data but not in test data, placeholder columns (columns with all 0's) were introduced to test data to take up the position of that level. This was necessary because it was required that train data and test data have the same number of columns, even after introducing dummy variables.
-
-%==================================================
-\section{Methods}
-\label{sec:methods}
+\subsubsection{Coding dummy variables}
+Certain algorithms (e.g. ridge regression) required that categorical featuresbe explicitly coded into dummy variables. Firstly, values in test set were set to the most frequently-occurring category in the training set for those with categories in the test but not the training set and those with missing values in the test but not the training set. This is because it is not possible to do prediction for an observation that has a category that is not present in the training set. For categories that appeared in the training set but not in the test set, placeholder columns (columns with all 0's) were introduced in the test set to take the position of that category. This was necessary because the training set and test set need to have the same number of columns even after introducing dummy variables.
 
 \subsection{Models}
 We fitted a variety of models, including:
 \begin{itemize}
-  \item Gradient Boosting Machine (GBM)
-\end{itemize}
-\begin{itemize}
-  \item Ridge Regression
+  \item Benchmark: set the predicted probability for each service in the test set to be the proportion of women who used each service in the training set
+  \item Gradient boosting machine
+  \item Random forest
+  \item k-nearest neigbors
+  \item Ridge regression
 \end{itemize}
 
+These models were fitted independently for each of the 14 health care services, ignoring any correlation among them.
+
 \subsection{Miscellaneous}
-As discussion in the Data section, it is possible that women in the test set in survey release b would have a probability of 0 of having used services d and n. To test our hypothesis, we produced a version of predictions with the predicted probabilities for these 2 services for women in survey release b set to 0. If our hypothesis is incorrect, our log loss score would be much worse than in the original predictions since the log loss penalizes wrong but confident predictions heavily. Otherwise, it is likely to improve our score.
+As discussed in the Data section, it is possible that women in the test set in survey release b would have a probability of 0 of having used services d and n. To test our hypothesis, we produced a version of predictions with the predicted probabilities for these 2 services for women in survey release b set to 0. If our hypothesis is incorrect, our log loss score would be much worse than in the original predictions since the log loss penalizes wrong but confident predictions heavily. Otherwise, it is likely to improve our score.
 
 \subsection{Computation}
 All calculations were carried out in the \texttt{R} programming language, with additional functions from the \texttt{caret} package. Annotated code is given in the Appendix in Section \ref{sec:appendix}.
@@ -188,10 +162,12 @@ All calculations were carried out in the \texttt{R} programming language, with a
 \label{sec:results}
 
 \subsection{Evaluation metric}
-The evaluation metric here is the logarithmic loss, defined by $-\frac{1}{n}$. (FILL IN!)
+The evaluation metric here is the logarithmic loss, defined by $-\frac{1}{n}\sum_{i=1}^{10} [y_i log(\hat{y_i}) + (1-y_i log(1-\hat{y_i}))]$, where $y_i$ is the binary outcome of 0 or 1 of whether the woman used the health care service and $\hat{y_i}$ is the predicted probability that $y_i$ is 1. The goal is to minimize the log loss, so the top solution on the leaderboard will be the one that has the minimum log loss score on the public test set, while the top solution in the competition will be the one that has the minimum log score on the private test set. The log loss penalizes predictions that are both confident and wrong very heavily.
 
 \subsection{Prediction results}
-A summary of the performance of our models on the test set is given in Table~\ref{tab-results}.
+A summary of the performance of our models on the public test set is given in Table~\ref{tab-results}. The best solution on the leaderboard is bolded. The gradient boosting method and the random forest performed well as both algorithms are suited to dealing with a large number of features. k-nearest neighbors is not optimal for high dimensions, hence the poor performance. Ridge regression also performed poorly, likely also due to the high dimension of the data.
+
+The processed data with the missing value cut-off of 90\% gave the best performance, probably because it gives the right balance of not discarding too many features, of which some may be informative, and features that yield almost no information after having their (large proportion of) missing values imputed with our basic imputation method.
 
 \begin{table}[ht]
   \centering
@@ -199,30 +175,47 @@ A summary of the performance of our models on the test set is given in Table~\re
     \hline
   	Data set & Model & Log loss\\ 
 		\hline
+    Original & Benchmark; proportion of women using each service in train set & 0.3847 \\ 
   	Missing value cut-off of 50\% & Gradient boosting method & 0.2796 \\ 
     Missing value cut-off of 80\% & Gradient boosting method & 0.2812 \\
-    Missing value cut-off of 50\% & Ridge Regression & 0.5044 \\
-    Missing value cut-off of 80\% & Ridge Regression & 0.5274 \\
+    \textbf{Missing value cut-off of 90\%} & \textbf{Gradient boosting method} & \textbf{0.2613} \\
+    Missing value cut-off of 95\% & Gradient boosting method & 0.2622 \\
+    Missing value cut-off of 50\% & Random forest & 0.3037 \\ 
+    Missing value cut-off of 80\% & Random forest & 0.3088 \\
+    Missing value cut-off of 50\% & k-nearest neighbors & 1.0622 \\ 
+    Missing value cut-off of 80\% & k-nearest neighbors & 1.1002 \\ 
+    Missing value cut-off of 50\% & Ridge regression & 0.5044 \\
+    Missing value cut-off of 80\% & Ridge regression & 0.5274 \\
   	\hline
 	\end{tabular}
-	\caption{\textbf{Summary of model performance on test set.}}
+	\caption{\textbf{Summary of model performance on test set.} The best method is bolded.}
   \label{tab-results}
 \end{table}
+
+\subsection{Miscellaneous}
+We tested our hypothesis of whether the predicted probabilities for services d and n for women in survey release b should be all 0. The original version of predicted probabilities gave a log loss score of 0.2613, while the version with the predicted probabilities for services d and n for women in survey release b set to 0 gave a score of 0.2619. The difference appears to be marginal, so under these circumstances, no conclusion can be reached. It is possible that predicted probabilities in the original version were already small to begin with, as seen in Fig~/ref{fig-svcsdn}, so setting them to 0 produced little effect.
+
+\begin{figure}[htbp]
+    \begin{center}
+    \includegraphics[width = 0.8\textwidth]{fig/"preds-svcsdn".pdf}
+    \caption{\textbf{Distributions of predicted probabilities for services d and n for survey release b.}}
+		\label{fig-svcsdn}
+  \end{center}
+\end{figure}
 %==================================================
 \section{Discussion} 
 \label{sec:discussion}
+\subsection{Summary}
+As of 12 April 2015, two days before the conclusion of the competition, our best model of the gradient boosting machine reached rank 30 out of 483 competitors on the leaderboard with a log loss score of 0.2613. The competition has been ongoing for more than a month and we entered late into it, so this performance is not unacceptable.
 
 \subsection{Limitations and future work}
-One significant feature about this dataset was that it had not one, but 14 dependent variables. And the dependent variables were correlated with each other. Conventional regression models assumed the dimension of Y to be nx1, so did the algorithms in R. Therefore, 14 columns of data were fitted separately using the models, assuming they were independent, which was not actually true. Ignoring the correlation between Y variables may cause loss of accuracy. Application of multivariate methods might be able to increase prediction accuracy.
+Our basic missing value imputation method in which we replaced missing values with a global value for each feature type was a compromise due to the large number of missing values and the obfuscation of the data set. Given the actual meaning of the features, we would likely be able to use more sophisticated missing value imputation methods that would improve our final predictions. The same can be said of the method used to replace categories found in the training but not in the test set for categorical variables; a better method would be to use the next most similar category found in the training set, but this could not be determined based on the obfuscated data.
 
-Methodology of imputing missing values might also result in loss of accuracy. Throwing away columns was a straightforward, but not elegant way to reduce dimension and save computer time. Ideally only columns with all NA's and columns with a single constant should be removed. Moreover, replacing missing values with a global value (e.g. 0 or -1) was a compromise due to the large amount of NA's and obfuscation of dataset. Provided more valid data and smaller size, regressing the missing values on other columns should be a better solution.
+Another significant feature about this data set was that it had not one, but 14 dependent variables that are not mutually exclusive. Moreover, these dependent variables were likely correlated with each other. Ignoring the correlation among these variables may have caused loss of prediction accuracy. The use of multivariate methods that take into account this correlation structure might be able to increase prediction accuracy. 
 
-Procedure of creating dummy variables could be another source of problem. First of all, some levels in test data had to be dropped (these levels were replaced by "missing"). Secondly, introducing dummy variables dramatically increased dimension of data, without bringing in extra information. Lastly, the sole purpose of introducing placeholder columns (columns with only 0's) in test data was to make the number of columns match for test and train. Given that the model permitted, using factors instead of dummy variables should be more concise.
-
-When regression models yielded prediction for probabilities, some of them might fall out of the range of 0 to 1. Converting these over-bound values to 0 or 1 would dramatically increase the score since log loss was used for evaluation of prediction. To avoid this problem, values over-bound were replaced with column means. However, a finer way should be adopted to accommodate those values.  
-
+Finally, since ridge regression is not well-suited for classification problems, it yielded predicted probabilities outside of the range of 0 to 1. Converting these values to 0 or 1 would dramatically increase the score since log loss was used as the evaluation metric. To avoid this problem, such values were replaced with the proportions of women who used that service in the training set. However, a finer way should be adopted to accommodate such values.
 %==================================================
-\section{References}
+%\section{References}
 \clearpage
 %==================================================
 \appendix
@@ -230,13 +223,17 @@ When regression models yielded prediction for probabilities, some of them might 
 \label{sec:appendix}
 %% begin.rcode read-chunk, echo=FALSE
 % library(knitr)
-% read_chunk("main.R") 
-% read_chunk("data-exploration-and-processing.R") 
+% read_chunk("data-exploration.R") 
+% read_chunk("data-processing.R") 
+% read_chunk("modeling.R") 
 %% end.rcode
 
-%% begin.rcode main, eval=FALSE, cache=FALSE
+%% begin.rcode data-exploration, eval=FALSE, cache=FALSE
 %% end.rcode
 
-%% begin.rcode data, eval=FALSE, cache=FALSE
+%% begin.rcode data-processing, eval=FALSE, cache=FALSE
+%% end.rcode
+
+%% begin.rcode modeling, eval=FALSE, cache=FALSE
 %% end.rcode
 \end{document}

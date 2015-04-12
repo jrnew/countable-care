@@ -1,7 +1,11 @@
-## @knitr main
+## @knitr modeling
+
+#======================================================================
+# Modeling
+#======================================================================
 rm(list = ls())
 gc()
-run_on_server <- FALSE ###
+run_on_server <- TRUE ###
 if (!run_on_server)
   setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
 data_dir <- "data"
@@ -50,8 +54,8 @@ train_val <- train[-train_indices, ]
 # Set up caret models
 train_control <- trainControl(method = "cv", number = 10, returnResamp = "none")
 
-if (FALSE) {
 mod_types <- c("gbm", "rf")
+if (FALSE) {
 mod <- list()
 probs <- matrix(NA, nrow(test), ncol(ytrain))
 for (mod_type in mod_types) {
@@ -86,10 +90,10 @@ for (mod_ensemble_type in mod_ensemble_types) {
                      paste0("mod_", mod_type, "_cutoff", prop_missing_cutoff, ".rda")))
       
       # Get predictions for each model and add them back to themselves
-      train_val[[paste0(mod_type, "_PROB"]] <- predict(object = mod[[svc_index]], 
+      train_val[[paste0(mod_type, "_PROB")]] <- predict(object = mod[[svc_index]], 
                                                        newdata = train_val, 
                                                        type = "prob")$yes
-      test[[paste0(mod_type, "_PROB"]] <- predict(object = mod[[svc_index]], 
+      test[[paste0(mod_type, "_PROB")]] <- predict(object = mod[[svc_index]], 
                                                   newdata = test, 
                                                   type = "prob")$yes
     }
@@ -102,33 +106,54 @@ for (mod_ensemble_type in mod_ensemble_types) {
     probs_ensemble[, svc_index] <- predict(object = mod_ensemble[[svc_index]], 
                                            newdata = test, 
                                            type = "prob")$yes
-    write_submission(probs_ensemble, paste0(mod_type_ensemble, "_cutoff", prop_missing_cutoff))
-    save(mod_ensemble, file = file.path(results_dir, 
-                                        paste0("mod_ensemble_", mod_type_ensemble, "_cutoff", 
-                                               prop_missing_cutoff, ".rda")))
-    if (get_notifications)
-      pbPost(type = "note", 
-             title = "stat222", 
-             body = paste0(mod_type_ensemble, " done!"),
-             recipients = c(1, 2))
   }
+  write_submission(probs_ensemble, paste0(mod_ensemble_type, "_cutoff", prop_missing_cutoff))
+  save(mod_ensemble, file = file.path(results_dir, 
+                                      paste0("mod_ensemble_", mod_ensemble_type, "_cutoff", 
+                                             prop_missing_cutoff, ".rda")))
+  if (get_notifications)
+    pbPost(type = "note", 
+           title = "stat222", 
+           body = paste0(mod_ensemble_type, " done!"),
+           recipients = c(1, 2))
 }
 
 # Set predicted prob to 0 for services d and n in survey release b
 if (FALSE) {
-prop_missing_cutoff <- 0.5 # does not matter which one is used here
+prop_missing_cutoff <- 0.9 # does not matter which one is used here
 load(file = file.path(data_dir, paste0("data_cutoff", prop_missing_cutoff, ".rda")))
 test <- data$test
-submit_files <- list.files("submit")
-for (file in submit_files) {
+# submit_files <- list.files("submit")
+# for (file in submit_files) {
+  file <- "gbm_cutoff0.9.csv"
   preds <- read.csv(file.path("submit", file))
+  pdf(file.path(fig_dir, "preds-svcsdn.pdf"), width = 10, 4)
+  par(mar = c(4.5, 4.5, 1, 1), mfrow = c(1, 2))
+  preds_svc_d <- preds$service_d[test$release == "b"]
+  hist(preds_svc_d, freq = FALSE, breaks = 50,
+       main = "", col = "lightgrey",
+       xlab = "Predicted probability for service d")
+  legend("topright", legend = c(paste0("Mean = ", round(mean(preds_svc_d), digits = 3), 
+                                    "\nMedian = ", round(median(preds_svc_d), digits = 3),
+                                    "\nSD = ", round(sd(preds_svc_d), digits = 3))),
+       bty = "n")
+  preds_svc_n <- preds$service_n[test$release == "b"]
+  hist(preds_svc_n, freq = FALSE, breaks = 50,
+       main = "", col = "lightgrey",
+       xlab = "Predicted probability for service n")
+  legend("topright", legend = c(paste0("Mean = ", round(mean(preds_svc_n), digits = 3), 
+                                      "\nMedian = ", round(median(preds_svc_n), digits = 3),
+                                      "\nSD = ", round(sd(preds_svc_n), digits = 3))),
+         bty = "n")
+  dev.off()
   preds$service_d[test$release == "b"] <- 0
   preds$service_n[test$release == "b"] <- 0
   write.csv(preds, file.path("submit", gsub("\\.csv", "_releaseb_svcsdn0.csv", file)), 
             row.names = FALSE)
-}
+# }
 }
 
+# Benchmark models
 # # Random probability drawn from U(0, 1)
 # probs <- matrix(runif(nrow(test)*(ncol(ytrain))), nrow(test), ncol(ytrain))
 # write_submission(probs, paste0("unifseed", seed))
