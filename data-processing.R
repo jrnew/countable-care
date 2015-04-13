@@ -3,12 +3,6 @@
 #======================================================================
 # Data processing
 #======================================================================
-# rm(list = ls())
-# gc()
-# setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
-# data_dir <- "data"
-# prop_missing_cutoff <- 0.9
-
 # Read in data
 train_readin <- read.csv(file.path(data_dir, "train_values.csv"), 
                          stringsAsFactors = FALSE, na.strings = "")
@@ -197,7 +191,6 @@ makeDummy <- function(train, test){#Make dummies for categorical, and feature 'r
   return(list(train1, test1))
 }
 
-# setwd("~/Copy/Berkeley/stat222-spring-2015/stat222sp15/projects/countable-care")
 load("data/data.rda")
 train <- data$train
 test <- data$test
